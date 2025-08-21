@@ -4,6 +4,8 @@ import mysql.connector
 import hashlib
 
 # === Database Connection ===
+import mysql.connector
+
 def connect_db():
     try:
         db = mysql.connector.connect(
@@ -22,6 +24,7 @@ if __name__ == "__main__":
     connection = connect_db()
     if connection:
         connection.close()
+
 
 # === Hash Password ===
 def hash_password(password):
