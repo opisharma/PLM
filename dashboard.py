@@ -1,27 +1,89 @@
 from tkinter import *
 from tkinter import messagebox, ttk
-import mysql.connector
-import subprocess
 import sys
 import os
+import subprocess
 
-# === Database Connection ===
-def connect_db():
-    try:
-        db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="life_manger"
-        )
-        print("✅ Connected to MySQL database successfully!")
-        return db
-    except mysql.connector.Error as err:
-        print("❌ Failed to connect:", err)
-        return None
+# Prefer shared DB connector from db_connect; fallback to local if unavailable
+try:
+    from db_connect import connect_db  # type: ignore
+except Exception:
+    # Fallback: local connector using mysql.connector
+    import mysql.connector  # type: ignore
+
+    def connect_db():
+        try:
+            db = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="",
+                database="life_manger",
+            )
+            print("✅ Connected to MySQL database successfully!")
+            return db
+        except Exception as err:
+            print("❌ Failed to connect:", err)
+            return None
 
 # === Global Variables (No login required) ===
 current_user = "Admin"  # Default user
+root = None
+content_frame = None
+
+# === Utilities ===
+def center_window(win: Tk, width: int | None = None, height: int | None = None):
+    """Center the given window on screen, optionally forcing size first."""
+    try:
+        win.update_idletasks()
+        if width and height:
+            win.geometry(f"{width}x{height}")
+        w = win.winfo_width()
+        h = win.winfo_height()
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        x = (sw // 2) - (w // 2)
+        y = (sh // 2) - (h // 2)
+        win.geometry(f"{w}x{h}+{x}+{y}")
+    except Exception:
+        pass
+
+def parse_cli_user_id() -> str | None:
+    for arg in sys.argv[1:]:
+        if arg.startswith("--user_id="):
+            return arg.split("=", 1)[1] or None
+    return None
+
+def resolve_user_name(user_id: str) -> str | None:
+    """Try to load user's display name from DB; return None on failure."""
+    try:
+        db = connect_db()
+        if not db:
+            return None
+        cur = db.cursor()
+        # Try common columns
+        cur.execute("SELECT name FROM users WHERE id=%s", (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        try:
+            db.close()
+        except Exception:
+            pass
+        if row and row[0]:
+            return str(row[0])
+    except Exception:
+        return None
+    return None
+
+def init_styles():
+    style = ttk.Style()
+    # On some Linux themes, set theme explicitly for consistency
+    try:
+        if sys.platform.startswith("linux") and style.theme_use() == "clam":
+            style.theme_use("clam")
+    except Exception:
+        pass
+    style.configure("Custom.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+    style.configure("Custom.Treeview", font=("Segoe UI", 10))
 
 # === Clear content before loading next ===
 def clear_frame():
@@ -249,10 +311,6 @@ def show_tasks():
           bg="#ffffff", fg="#2c3e50").pack(pady=10)
 
     # Task Table with enhanced styling
-    style = ttk.Style()
-    style.configure("Custom.Treeview.Heading", font=("Segoe UI", 11, "bold"))
-    style.configure("Custom.Treeview", font=("Segoe UI", 10))
-
     task_table = ttk.Treeview(table_container, columns=("ID", "Title", "Description", "Priority", "Status"), 
                              show="headings", style="Custom.Treeview")
     
@@ -367,31 +425,45 @@ def show_settings():
 def restart_app():
     result = messagebox.askyesno("Restart", "🔄 Are you sure you want to restart the application?")
     if result:
-        root.destroy()
-        main()
+        try:
+            if root is not None:
+                root.destroy()
+        finally:
+            main()
 
 # === Main GUI ===
 def main():
-    global root, content_frame
-    
+    global root, content_frame, current_user
+
+    # Resolve user name from CLI if provided
+    user_id = parse_cli_user_id()
+    if user_id:
+        name = resolve_user_name(user_id)
+        if name:
+            current_user = name
+        else:
+            current_user = f"User {user_id}"
+
     root = Tk()
-    root.title("🧠 Life Manager - Direct Dashboard")
+    root.title("🧠 Life Manager - Dashboard")
     root.geometry("1000x700")
     root.configure(bg="#ffffff")
     root.resizable(True, True)
-    
-    # Maximize window on Windows
-    try:
-        root.state('zoomed')
-    except:
-        pass
+
+    # Initialize widget styles once
+    init_styles()
 
     # === Main content frame ===
     content_frame = Frame(root, bg="#f8f9fc")
     content_frame.pack(fill=BOTH, expand=True)
 
-    # Start directly with dashboard (no login)
+    # Show dashboard
     show_dashboard()
+
+    # Center window after layout measurements
+    center_window(root)
+
+    root.minsize(900, 600)
     root.mainloop()
 
 # Run the application
