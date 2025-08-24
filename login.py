@@ -138,7 +138,7 @@ root.geometry("640x520")  # Match register.py window size
 root.resizable(True, True)
 root.configure(bg="#ecf0f1")
 
-# Center the window
+# Initial placement; final centering will be applied after layout
 root.eval('tk::PlaceWindow . center')
 
 # Header
@@ -154,21 +154,26 @@ tk.Label(header_frame, text="🔐 Life Manager Login",
 main_frame = tk.Frame(root, bg="#ecf0f1")
 main_frame.pack(expand=True, fill="both", padx=40, pady=30)
 
-# Email field
-tk.Label(main_frame, text="Email:", 
-         font=("Segoe UI", 12), bg="#ecf0f1").pack(anchor="w")
-email_entry = tk.Entry(main_frame, font=("Segoe UI", 12), width=30, 
-                      relief="solid", borderwidth=1, bg="white")
-email_entry.pack(pady=(5, 15), ipady=5)
+# Aligned form using grid (labels and inputs on same row)
+label_font = ("Segoe UI", 12)
+entry_opts = {"font": ("Segoe UI", 12), "width": 30, "relief": "solid", "borderwidth": 1, "bg": "white"}
 
-# Password field  
-tk.Label(main_frame, text="Password:", 
-         font=("Segoe UI", 12), bg="#ecf0f1").pack(anchor="w")
-password_entry = tk.Entry(main_frame, show="*", font=("Segoe UI", 12), width=30,
-                         relief="solid", borderwidth=1, bg="white")
-password_entry.pack(pady=(5, 25), ipady=5)
+form = tk.Frame(main_frame, bg="#ecf0f1")
+form.pack(fill="x")
+form.grid_columnconfigure(0, weight=0)
+form.grid_columnconfigure(1, weight=0)
 
-# Login button
+# Email row
+tk.Label(form, text="Email:", font=label_font, bg="#ecf0f1").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=6)
+email_entry = tk.Entry(form, **entry_opts)
+email_entry.grid(row=0, column=1, sticky="w", pady=6, ipady=4)
+
+# Password row
+tk.Label(form, text="Password:", font=label_font, bg="#ecf0f1").grid(row=1, column=0, sticky="e", padx=(0, 10), pady=6)
+password_entry = tk.Entry(form, show="*", **entry_opts)
+password_entry.grid(row=1, column=1, sticky="w", pady=(6, 12), ipady=4)
+
+# Login button (packed below the form, like register screen)
 login_btn = tk.Button(main_frame, text="Login", command=login,
                      bg="#3498db", fg="white", font=("Segoe UI", 12, "bold"), 
                      width=25, height=2, relief="flat",
@@ -176,7 +181,7 @@ login_btn = tk.Button(main_frame, text="Login", command=login,
                      cursor="hand2")
 login_btn.pack(pady=10)
 
-# Status label
+# Status label (packed under button)
 status_label = tk.Label(main_frame, text="আপনার Email এবং Password দিন", 
                        font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
 status_label.pack(pady=10)
@@ -199,6 +204,16 @@ root.protocol("WM_DELETE_WINDOW", on_closing)
 # Start the GUI
 if __name__ == "__main__":
     try:
+        # Final centering after layout
+        root.update_idletasks()
+        w = root.winfo_width()
+        h = root.winfo_height()
+        sw = root.winfo_screenwidth()
+        sh = root.winfo_screenheight()
+        x = (sw // 2) - (w // 2)
+        y = (sh // 2) - (h // 2)
+        root.geometry(f"{w}x{h}+{x}+{y}")
+        root.minsize(360, 420)
         root.mainloop()
     except KeyboardInterrupt:
         print("\n⚠️ Application interrupted by user")
@@ -207,5 +222,5 @@ if __name__ == "__main__":
     finally:
         try:
             root.destroy()
-        except:
+        except Exception:
             pass
