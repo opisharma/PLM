@@ -20,121 +20,16 @@ def connect_db():
         print("❌ Failed to connect:", err)
         return None
 
-# === Login Variables ===
-is_logged_in = False
-current_user = None
-
-def hash_password(password):
-    import hashlib
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# === Login Function ===
-def show_login():
-    clear_frame()
-    
-    # Header
-    header_frame = Frame(content_frame, bg="#34495e", height=120)
-    header_frame.pack(fill=X)
-    header_frame.pack_propagate(False)
-
-    Label(header_frame, text="🧠", font=("Segoe UI", 48), 
-          bg="#34495e", fg="#ffffff").pack(pady=10)
-
-    Label(header_frame, text="Life Manager", font=("Segoe UI", 24, "bold"), 
-          bg="#34495e", fg="#ffffff").pack()
-
-    # Login Container
-    login_container = Frame(content_frame, bg="#ffffff", relief="raised", bd=2)
-    login_container.pack(pady=40, padx=40, fill=BOTH, expand=True)
-
-    Label(login_container, text="Welcome Back!", font=("Segoe UI", 20, "bold"), 
-          bg="#ffffff", fg="#2c3e50").pack(pady=20)
-
-    Label(login_container, text="Please sign in to your account", font=("Segoe UI", 12), 
-          bg="#ffffff", fg="#7f8c8d").pack(pady=(0, 30))
-
-    # Form Fields
-    form_frame = Frame(login_container, bg="#ffffff")
-    form_frame.pack(pady=20)
-
-    Label(form_frame, text="👤 Username", font=("Segoe UI", 12, "bold"), 
-          bg="#ffffff", fg="#2c3e50").pack(anchor=W, pady=(0, 5))
-
-    username_entry = Entry(form_frame, font=("Segoe UI", 14), width=25, 
-                          relief="solid", bd=1, bg="#ecf0f1")
-    username_entry.pack(ipady=8, pady=(0, 20))
-
-    Label(form_frame, text="🔒 Password", font=("Segoe UI", 12, "bold"), 
-          bg="#ffffff", fg="#2c3e50").pack(anchor=W, pady=(0, 5))
-
-    password_entry = Entry(form_frame, show="*", font=("Segoe UI", 14), width=25, 
-                          relief="solid", bd=1, bg="#ecf0f1")
-    password_entry.pack(ipady=8, pady=(0, 30))
-
-    def login():
-        global is_logged_in, current_user
-        
-        username = username_entry.get().strip()
-        password = password_entry.get().strip()
-
-        if not username or not password:
-            messagebox.showwarning("Validation Error", "⚠️ All fields are required!")
-            return
-
-        try:
-            db = connect_db()
-            if db is None:
-                return
-
-            cursor = db.cursor()
-            hashed_pw = hash_password(password)
-            query = "SELECT * FROM users WHERE username=%s AND password=%s"
-            cursor.execute(query, (username, hashed_pw))
-            result = cursor.fetchone()
-            db.close()
-
-            if result:
-                is_logged_in = True
-                current_user = username
-                messagebox.showinfo("Login Success", "🎉 Welcome to Life Manager!")
-                show_dashboard()
-            else:
-                messagebox.showerror("Login Failed", "❌ Invalid username or password!")
-                password_entry.delete(0, END)
-
-        except Exception as err:
-            messagebox.showerror("Database Error", f"❌ Error: {str(err)}")
-
-    # Login Button
-    login_btn = Button(form_frame, text="🔑 Login", command=login,
-                      bg="#3498db", fg="white", font=("Segoe UI", 14, "bold"), 
-                      width=20, relief="flat", cursor="hand2", 
-                      activebackground="#2980b9", pady=10)
-    login_btn.pack(pady=10)
-
-    # Keyboard bindings
-    def on_enter(event):
-        login()
-
-    username_entry.bind("<Return>", lambda e: password_entry.focus())
-    password_entry.bind("<Return>", on_enter)
-
-    # Auto focus
-    username_entry.focus()
+# === Global Variables (No login required) ===
+current_user = "Admin"  # Default user
 
 # === Clear content before loading next ===
 def clear_frame():
     for widget in content_frame.winfo_children():
         widget.destroy()
 
-# === Show Dashboard ===
+# === Show Dashboard (Main Entry Point) ===
 def show_dashboard():
-    global is_logged_in
-    
-    if not is_logged_in:
-        show_login()
-        return
-        
     clear_frame()
 
     # Header with gradient-like effect
@@ -149,7 +44,7 @@ def show_dashboard():
     welcome_frame = Frame(content_frame, bg="#ecf0f1", relief="raised", bd=1)
     welcome_frame.pack(fill=X, padx=40, pady=10)
     
-    welcome_text = f"✨ Welcome {current_user}! Manage your life efficiently ✨" if current_user else "✨ Welcome to your Personal Life Management System ✨"
+    welcome_text = f"✨ Welcome {current_user}! Manage your life efficiently ✨"
     Label(welcome_frame, text=welcome_text, 
           font=("Segoe UI", 16, "italic"), bg="#ecf0f1", fg="#34495e").pack(pady=15)
 
@@ -175,7 +70,7 @@ def show_dashboard():
         {"emoji": "💰", "title": "Expense\nTracker", "command": show_expenses, "color": "#f39c12", "hover": "#e67e22"},
         {"emoji": "🎯", "title": "Goal\nSetting", "command": show_goals, "color": "#8e44ad", "hover": "#7d3c98"},
         {"emoji": "💊", "title": "Medication\nReminder", "command": show_medications, "color": "#16a085", "hover": "#138d75"},
-        {"emoji": "🔓", "title": "Logout\nSystem", "command": logout, "color": "#c0392b", "hover": "#a93226"},
+        {"emoji": "🔧", "title": "Settings\n& Config", "command": show_settings, "color": "#34495e", "hover": "#2c3e50"},
     ]
 
     # Create grid layout for cards
@@ -198,7 +93,7 @@ def show_dashboard():
     footer_frame.pack(fill=X, side=BOTTOM)
     footer_frame.pack_propagate(False)
     
-    Label(footer_frame, text="💡 Manage your life efficiently with our integrated system", 
+    Label(footer_frame, text="💡 Manage your life efficiently with our integrated system | Direct Access Mode", 
           font=("Segoe UI", 11), bg="#34495e", fg="#ecf0f1").pack(pady=10)
 
 # === Task CRUD Section ===
@@ -290,13 +185,14 @@ def show_tasks():
                 if selected_task_id.get():
                     cursor.execute("UPDATE tasks SET title=%s, description=%s, priority=%s, status=%s WHERE id=%s",
                                    (title, desc, priority, status, selected_task_id.get()))
+                    messagebox.showinfo("Success", "✅ Task updated successfully!")
                 else:
                     cursor.execute("INSERT INTO tasks (title, description, priority, status) VALUES (%s, %s, %s, %s)",
                                    (title, desc, priority, status))
+                    messagebox.showinfo("Success", "✅ Task added successfully!")
                 db.commit()
                 clear_form()
                 refresh_table()
-                messagebox.showinfo("Success", "✅ Task saved successfully!")
             except Exception as e:
                 messagebox.showerror("Database Error", f"❌ Error: {str(e)}")
             finally:
@@ -391,9 +287,12 @@ def show_expenses():
     
     Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
            bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
-    
-    Label(content_frame, text="📊 Track and manage your daily expenses", 
-          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").pack(pady=20)
+
+    # Centering container
+    center_frame = Frame(content_frame, bg="#f8f9fc")
+    center_frame.pack(expand=True, fill=BOTH)
+    Label(center_frame, text="📊 Expense Management will be implemented soon..", 
+          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").place(relx=0.5, rely=0.5, anchor=CENTER)
 
 def show_goals():
     clear_frame()
@@ -408,8 +307,10 @@ def show_goals():
     Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
            bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
     
-    Label(content_frame, text="🌟 Set your personal development goals here",
-          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").pack(pady=20)
+    center_frame = Frame(content_frame, bg="#f8f9fc")
+    center_frame.pack(expand=True, fill=BOTH)
+    Label(center_frame, text="🌟 Goal Setting Module - Coming Soon!",
+          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").place(relx=0.5, rely=0.5, anchor=CENTER)
 
 def show_medications():
     clear_frame()
@@ -424,21 +325,57 @@ def show_medications():
     Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
            bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
     
-    Label(content_frame, text="⏰ Never miss your medication schedule", 
-          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").pack(pady=20)
+    center_frame = Frame(content_frame, bg="#f8f9fc")
+    center_frame.pack(expand=True, fill=BOTH)
+    Label(center_frame, text="⏰ Medication Tracking - Under Development", 
+          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").place(relx=0.5, rely=0.5, anchor=CENTER)
 
-def logout():
-    result = messagebox.askyesno("Logout Confirmation", "🔓 Are you sure you want to logout?")
+def show_settings():
+    clear_frame()
+    
+    header_frame = Frame(content_frame, bg="#34495e", height=70)
+    header_frame.pack(fill=X, pady=(0, 20))
+    header_frame.pack_propagate(False)
+    
+    Label(header_frame, text="🔧 Settings & Configuration", font=("Segoe UI", 24, "bold"),
+          bg="#34495e", fg="#ffffff").pack(pady=15)
+    
+    Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
+           bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
+    
+    # Settings Panel
+    settings_container = Frame(content_frame, bg="#ffffff", relief="raised", bd=2)
+    settings_container.pack(fill=X, padx=40, pady=20)
+    
+    Label(settings_container, text="⚙️ Application Settings", font=("Segoe UI", 16, "bold"),
+          bg="#ffffff", fg="#2c3e50").pack(pady=15)
+    
+    settings_frame = Frame(settings_container, bg="#ffffff")
+    settings_frame.pack(pady=10, padx=20)
+    
+    Label(settings_frame, text=f"👤 Current User: {current_user}", 
+          font=("Segoe UI", 12), bg="#ffffff", fg="#2c3e50").pack(pady=10, anchor=W)
+    
+    Label(settings_frame, text="🌟 Direct Access Mode Enabled", 
+          font=("Segoe UI", 12), bg="#ffffff", fg="#27ae60").pack(pady=5, anchor=W)
+    
+    Button(settings_frame, text="🔄 Restart Application", 
+           command=lambda: restart_app(),
+           bg="#3498db", fg="white", font=("Segoe UI", 11, "bold"), 
+           relief="flat", padx=20, pady=8).pack(pady=15)
+
+def restart_app():
+    result = messagebox.askyesno("Restart", "🔄 Are you sure you want to restart the application?")
     if result:
         root.destroy()
-        subprocess.Popen(["python", "login.py"])  # Back to login
+        main()
 
 # === Main GUI ===
 def main():
     global root, content_frame
     
     root = Tk()
-    root.title("🧠 Life Manager - Enhanced Dashboard")
+    root.title("🧠 Life Manager - Direct Dashboard")
     root.geometry("1000x700")
     root.configure(bg="#ffffff")
     root.resizable(True, True)
@@ -453,6 +390,7 @@ def main():
     content_frame = Frame(root, bg="#f8f9fc")
     content_frame.pack(fill=BOTH, expand=True)
 
+    # Start directly with dashboard (no login)
     show_dashboard()
     root.mainloop()
 
