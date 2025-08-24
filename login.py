@@ -20,10 +20,18 @@ def launch_dashboard(user_data=None):
         try:
             import dashboard
             if hasattr(dashboard, "launch_dashboard"):
-                dashboard.launch_dashboard(user_data)
+                # Try with user_data; if signature doesn't accept it, call without
+                try:
+                    dashboard.launch_dashboard(user_data)
+                except TypeError:
+                    dashboard.launch_dashboard()
                 return True
             elif hasattr(dashboard, "main"):
-                dashboard.main(user_data)
+                # Try with user_data; if signature doesn't accept it, call without
+                try:
+                    dashboard.main(user_data)
+                except TypeError:
+                    dashboard.main()
                 return True
         except ImportError:
             pass
