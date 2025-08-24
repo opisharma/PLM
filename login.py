@@ -12,49 +12,44 @@ from db_connect import connect_db
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+# === Module-level GUI references (initialized when UI is created) ===
+root = None
+email_entry = None
+password_entry = None
+login_btn = None
+
 # === Dashboard launching function ===
 def launch_dashboard(user_data=None):
-    """Launch dashboard with user data"""
+    """Launch dashboard in a separate process with optional user data."""
     try:
-        # Method 1: Try to import and run dashboard directly
-        try:
-            import dashboard
-            if hasattr(dashboard, "launch_dashboard"):
-                # Try with user_data; if signature doesn't accept it, call without
-                try:
-                    dashboard.launch_dashboard(user_data)
-                except TypeError:
-                    dashboard.launch_dashboard()
-                return True
-            elif hasattr(dashboard, "main"):
-                # Try with user_data; if signature doesn't accept it, call without
-                try:
-                    dashboard.main(user_data)
-                except TypeError:
-                    dashboard.main()
-                return True
-        except ImportError:
-            pass
-        
-        # Method 2: Run dashboard as separate process
         script_dir = os.path.dirname(os.path.abspath(__file__))
         dashboard_path = os.path.join(script_dir, "dashboard.py")
-        
-        if os.path.exists(dashboard_path):
-            # Pass user data as command line argument if needed
-            if user_data:
-                subprocess.Popen([
-                    sys.executable, dashboard_path, 
-                    f"--user_id={user_data.get('id', '')}"
-                ], cwd=script_dir)
-            else:
-                subprocess.Popen([sys.executable, dashboard_path], cwd=script_dir)
-            return True
-        else:
+
+        if not os.path.exists(dashboard_path):
             messagebox.showerror("Dashboard Error", "Dashboard file 'dashboard.py' not found.")
             return False
-            
+
+        args = [sys.executable, dashboard_path]
+        if user_data and 'id' in user_data:
+            args.append(f"--user_id={user_data.get('id', '')}")
+
+        # Hide login window immediately while launching dashboard to avoid overlap
+        try:
+            if root is not None and root.winfo_exists():
+                root.withdraw()
+        except Exception:
+            pass
+
+        subprocess.Popen(args, cwd=script_dir)
+        return True
+
     except Exception as e:
+        # If launch failed, restore the login window
+        try:
+            if root is not None and root.winfo_exists():
+                root.deiconify()
+        except Exception:
+            pass
         messagebox.showerror("Dashboard Error", f"Failed to launch dashboard: {str(e)}")
         return False
 
@@ -65,12 +60,11 @@ def open_register():
         register_path = os.path.join(script_dir, "register.py")
         if os.path.exists(register_path):
             subprocess.Popen([sys.executable, register_path], cwd=script_dir)
+            # Safely close current window if it exists
             try:
-                root.quit()
-            except Exception:
-                pass
-            try:
-                root.destroy()
+                if root is not None and root.winfo_exists():
+                    root.quit()
+                    root.destroy()
             except Exception:
                 pass
         else:
@@ -92,9 +86,14 @@ def login():
         messagebox.showwarning("Validation Error", "Password must be at least 6 characters long.")
         return
 
-    # Disable login button during processing
-    login_btn.config(state='disabled', text="Logging in...")
-    root.update()
+    # Disable login button during processing (safely)
+    try:
+        if login_btn is not None and login_btn.winfo_exists():
+            login_btn.config(state='disabled', text="Logging in...")
+        if root is not None and root.winfo_exists():
+            root.update()
+    except Exception:
+        pass
 
     db = None
     cursor = None
@@ -125,8 +124,13 @@ def login():
             # Launch dashboard
             if launch_dashboard(user_data):
                 print(f"✅ Dashboard launched successfully for user: {user_data.get('email')}")
-                root.quit()  # Use quit() instead of destroy() for better cleanup
-                root.destroy()
+                # Safely close login window after launching dashboard
+                try:
+                    if root is not None and root.winfo_exists():
+                        root.quit()  # Use quit() instead of destroy() for better cleanup
+                        root.destroy()
+                except Exception:
+                    pass
             else:
                 messagebox.showerror("Dashboard Error", "Failed to open the dashboard.")
                 
@@ -139,8 +143,12 @@ def login():
     except Exception as e:
         messagebox.showerror("Unexpected Error", f"An error occurred: {str(e)}")
     finally:
-        # Re-enable login button
-        login_btn.config(state='normal', text="Login")
+        # Re-enable login button (safely, in case window is closed)
+        try:
+            if login_btn is not None and login_btn.winfo_exists():
+                login_btn.config(state='normal', text="Login")
+        except Exception:
+            pass
         
         # Clean up database connections
         try:
@@ -159,84 +167,92 @@ def login():
 def on_enter(event):
     login()
 
-# === UI Setup ===
-root = tk.Tk()
-root.title("Login - Life Manager")
-root.geometry("640x520")  # Match register.py window size
-root.resizable(True, True)
-root.configure(bg="#ecf0f1")
 
-# Initial placement; final centering will be applied after layout
-root.eval('tk::PlaceWindow . center')
+def run_login_app():
+    """Create and run the Login UI. Safe to import this module without creating windows."""
+    global root, email_entry, password_entry, login_btn
 
-# Header
-header_frame = tk.Frame(root, bg="#3498db", height=60)
-header_frame.pack(fill="x")
-header_frame.pack_propagate(False)
+    # UI Setup
+    root = tk.Tk()
+    root.title("Login - Life Manager")
+    root.geometry("640x520")  # Match register.py window size
+    root.resizable(True, True)
+    root.configure(bg="#ecf0f1")
 
-tk.Label(header_frame, text="🔐 Life Manager Login", 
-         font=("Segoe UI", 18, "bold"), 
-         bg="#3498db", fg="white").pack(expand=True)
+    # Initial placement; final centering will be applied after layout
+    root.eval('tk::PlaceWindow . center')
 
-# Main content
-main_frame = tk.Frame(root, bg="#ecf0f1")
-main_frame.pack(expand=True, fill="both", padx=40, pady=30)
+    # Header
+    header_frame = tk.Frame(root, bg="#3498db", height=60)
+    header_frame.pack(fill="x")
+    header_frame.pack_propagate(False)
 
-# Aligned form using grid (labels and inputs on same row)
-label_font = ("Segoe UI", 12)
-entry_opts = {"font": ("Segoe UI", 12), "width": 30, "relief": "solid", "borderwidth": 1, "bg": "white"}
+    tk.Label(header_frame, text="🔐 Life Manager Login",
+             font=("Segoe UI", 18, "bold"),
+             bg="#3498db", fg="white").pack(expand=True)
 
-form = tk.Frame(main_frame, bg="#ecf0f1")
-form.pack(fill="x")
-form.grid_columnconfigure(0, weight=0)
-form.grid_columnconfigure(1, weight=0)
+    # Main content
+    main_frame = tk.Frame(root, bg="#ecf0f1")
+    main_frame.pack(expand=True, fill="both", padx=40, pady=30)
 
-# Email row
-tk.Label(form, text="Email:", font=label_font, bg="#ecf0f1").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=6)
-email_entry = tk.Entry(form, **entry_opts)
-email_entry.grid(row=0, column=1, sticky="w", pady=6, ipady=4)
+    # Aligned form using grid (labels and inputs on same row)
+    label_font = ("Segoe UI", 12)
+    entry_opts = {"font": ("Segoe UI", 12), "width": 30, "relief": "solid", "borderwidth": 1, "bg": "white"}
 
-# Password row
-tk.Label(form, text="Password:", font=label_font, bg="#ecf0f1").grid(row=1, column=0, sticky="e", padx=(0, 10), pady=6)
-password_entry = tk.Entry(form, show="*", **entry_opts)
-password_entry.grid(row=1, column=1, sticky="w", pady=(6, 12), ipady=4)
+    form = tk.Frame(main_frame, bg="#ecf0f1")
+    form.pack(fill="x")
+    form.grid_columnconfigure(0, weight=0)
+    form.grid_columnconfigure(1, weight=0)
 
-# Login button (packed below the form, like register screen)
-login_btn = tk.Button(main_frame, text="Login", command=login,
-                     bg="#3498db", fg="white", font=("Segoe UI", 12, "bold"), 
-                     width=25, height=2, relief="flat",
-                     activebackground="#2980b9", activeforeground="white",
-                     cursor="hand2")
-login_btn.pack(pady=10)
+    # Email row
+    tk.Label(form, text="Email:", font=label_font, bg="#ecf0f1").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=6)
+    email_entry = tk.Entry(form, **entry_opts)
+    email_entry.grid(row=0, column=1, sticky="w", pady=6, ipady=4)
 
-# Register link row (packed under button)
-link_frame = tk.Frame(main_frame, bg="#ecf0f1")
-link_frame.pack(pady=6)
+    # Password row
+    tk.Label(form, text="Password:", font=label_font, bg="#ecf0f1").grid(row=1, column=0, sticky="e", padx=(0, 10), pady=6)
+    password_entry = tk.Entry(form, show="*", **entry_opts)
+    password_entry.grid(row=1, column=1, sticky="w", pady=(6, 12), ipady=4)
 
-link_text = tk.Label(link_frame, text="Don't have an account? ", font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
-link_text.pack(side="left")
+    # Login button (packed below the form, like register screen)
+    login_btn = tk.Button(main_frame, text="Login", command=login,
+                         bg="#3498db", fg="white", font=("Segoe UI", 12, "bold"),
+                         width=25, height=2, relief="flat",
+                         activebackground="#2980b9", activeforeground="white",
+                         cursor="hand2")
+    login_btn.pack(pady=10)
 
-register_link = tk.Label(link_frame, text="Register here", font=("Segoe UI", 10, "underline"), bg="#ecf0f1", fg="#3498db", cursor="hand2")
-register_link.pack(side="left")
-register_link.bind("<Button-1>", lambda e: open_register())
+    # Register link row (packed under button)
+    link_frame = tk.Frame(main_frame, bg="#ecf0f1")
+    link_frame.pack(pady=6)
 
-# Bind Enter key to login
-root.bind('<Return>', on_enter)
-password_entry.bind('<Return>', on_enter)
-email_entry.bind('<Return>', on_enter)
+    link_text = tk.Label(link_frame, text="Don't have an account? ", font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
+    link_text.pack(side="left")
 
-# Focus on email entry
-email_entry.focus()
+    register_link = tk.Label(link_frame, text="Register here", font=("Segoe UI", 10, "underline"), bg="#ecf0f1", fg="#3498db", cursor="hand2")
+    register_link.pack(side="left")
+    register_link.bind("<Button-1>", lambda e: open_register())
 
-# Handle window close
-def on_closing():
-    root.quit()
-    root.destroy()
+    # Bind Enter key to login
+    root.bind('<Return>', on_enter)
+    password_entry.bind('<Return>', on_enter)
+    email_entry.bind('<Return>', on_enter)
 
-root.protocol("WM_DELETE_WINDOW", on_closing)
+    # Focus on email entry
+    email_entry.focus()
 
-# Start the GUI
-if __name__ == "__main__":
+    # Handle window close
+    def on_closing():
+        try:
+            if root is not None and root.winfo_exists():
+                root.quit()
+                root.destroy()
+        except Exception:
+            pass
+
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+
+    # Start the GUI
     try:
         # Final centering after layout
         root.update_idletasks()
@@ -255,6 +271,11 @@ if __name__ == "__main__":
         print(f"❌ Application error: {e}")
     finally:
         try:
-            root.destroy()
+            if root is not None and root.winfo_exists():
+                root.destroy()
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    run_login_app()
