@@ -1,26 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
-import mysql.connector
 import subprocess
 import hashlib
 import os
 import sys
+from db_connect import connect_db
 
 # === Database connection ===
-def connect_db():
-    try:
-        db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="1234",
-            database="life_manger"
-        )
-        print("✅ Connected to MySQL database successfully!")
-        return db
-    except mysql.connector.Error as err:
-        print("❌ Failed to connect:", err)
-        messagebox.showerror("Database Connection Error", f"Database connection failed: {err}")
-        return None
+# Use shared connection helper from db_connect.py to keep a single source of truth
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -65,16 +52,12 @@ def launch_dashboard(user_data=None):
 
 # === Login function ===
 def login():
-    username = username_entry.get().strip()
+    email = email_entry.get().strip()
     password = password_entry.get().strip()
 
     # Input validation
-    if not username or not password:
-        messagebox.showwarning("Validation Error", "⚠️ Username এবং Password দুটোই দিতে হবে!")
-        return
-
-    if len(username) < 3:
-        messagebox.showwarning("Validation Error", "⚠️ Username কমপক্ষে ৩ অক্ষরের হতে হবে!")
+    if not email or not password:
+        messagebox.showwarning("Validation Error", "⚠️ Email এবং Password দুটোই দিতে হবে!")
         return
 
     if len(password) < 6:
@@ -90,42 +73,41 @@ def login():
     try:
         db = connect_db()
         if db is None:
+            messagebox.showerror("Database Connection Error", "Database connection failed. Please try again later.")
             return
 
         cursor = db.cursor()
         hashed_pw = hash_password(password)
         
-        # Get user details
-        query = "SELECT id, username, email FROM users WHERE username=%s AND password=%s"
-        cursor.execute(query, (username, hashed_pw))
+        # Get user details by email
+        query = "SELECT id, name, email FROM users WHERE email=%s AND password=%s"
+        cursor.execute(query, (email, hashed_pw))
         result = cursor.fetchone()
 
         if result:
             # Create user data dictionary
             user_data = {
                 'id': result[0],
-                'username': result[1],
+                'name': result[1],
                 'email': result[2] if len(result) > 2 else None,
             }
             
-            messagebox.showinfo("Login Success", f"🎉 স্বাগতম {username}! Life Manager এ আপনাকে স্বাগতম!")
+            messagebox.showinfo("Login Success", f"🎉 স্বাগতম {user_data.get('name') or user_data.get('email')}! Life Manager এ আপনাকে স্বাগতম!")
             
             # Launch dashboard
             if launch_dashboard(user_data):
-                print(f"✅ Dashboard launched successfully for user: {username}")
+                print(f"✅ Dashboard launched successfully for user: {user_data.get('email')}")
                 root.quit()  # Use quit() instead of destroy() for better cleanup
                 root.destroy()
             else:
                 messagebox.showerror("Error", "Dashboard খুলতে সমস্যা হয়েছে!")
                 
         else:
-            messagebox.showerror("Login Failed", "❌ ভুল Username অথবা Password!")
+            messagebox.showerror("Login Failed", "❌ ভুল Email অথবা Password!")
             # Clear password field
             password_entry.delete(0, tk.END)
-            username_entry.focus()
+            email_entry.focus()
 
-    except mysql.connector.Error as err:
-        messagebox.showerror("Database Error", f"Database error: {str(err)}")
     except Exception as e:
         messagebox.showerror("Unexpected Error", f"An error occurred: {str(e)}")
     finally:
@@ -152,8 +134,8 @@ def on_enter(event):
 # === UI Setup ===
 root = tk.Tk()
 root.title("Login - Life Manager")
-root.geometry("450x350")
-root.resizable(False, False)
+root.geometry("640x520")  # Match register.py window size
+root.resizable(True, True)
 root.configure(bg="#ecf0f1")
 
 # Center the window
@@ -172,12 +154,12 @@ tk.Label(header_frame, text="🔐 Life Manager Login",
 main_frame = tk.Frame(root, bg="#ecf0f1")
 main_frame.pack(expand=True, fill="both", padx=40, pady=30)
 
-# Username field
-tk.Label(main_frame, text="Username:", 
+# Email field
+tk.Label(main_frame, text="Email:", 
          font=("Segoe UI", 12), bg="#ecf0f1").pack(anchor="w")
-username_entry = tk.Entry(main_frame, font=("Segoe UI", 12), width=30, 
-                         relief="solid", borderwidth=1, bg="white")
-username_entry.pack(pady=(5, 15), ipady=5)
+email_entry = tk.Entry(main_frame, font=("Segoe UI", 12), width=30, 
+                      relief="solid", borderwidth=1, bg="white")
+email_entry.pack(pady=(5, 15), ipady=5)
 
 # Password field  
 tk.Label(main_frame, text="Password:", 
@@ -195,17 +177,17 @@ login_btn = tk.Button(main_frame, text="Login", command=login,
 login_btn.pack(pady=10)
 
 # Status label
-status_label = tk.Label(main_frame, text="আপনার Username এবং Password দিন", 
+status_label = tk.Label(main_frame, text="আপনার Email এবং Password দিন", 
                        font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
 status_label.pack(pady=10)
 
 # Bind Enter key to login
 root.bind('<Return>', on_enter)
 password_entry.bind('<Return>', on_enter)
-username_entry.bind('<Return>', on_enter)
+email_entry.bind('<Return>', on_enter)
 
-# Focus on username entry
-username_entry.focus()
+# Focus on email entry
+email_entry.focus()
 
 # Handle window close
 def on_closing():
