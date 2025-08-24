@@ -50,6 +50,26 @@ def launch_dashboard(user_data=None):
         messagebox.showerror("Dashboard Error", f"Failed to launch dashboard: {str(e)}")
         return False
 
+def open_register():
+    """Open the registration window and close the login window."""
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        register_path = os.path.join(script_dir, "register.py")
+        if os.path.exists(register_path):
+            subprocess.Popen([sys.executable, register_path], cwd=script_dir)
+            try:
+                root.quit()
+            except Exception:
+                pass
+            try:
+                root.destroy()
+            except Exception:
+                pass
+        else:
+            messagebox.showerror("Error", "register.py file not found!")
+    except Exception as e:
+        messagebox.showerror("Navigation Error", f"Failed to open register page: {str(e)}")
+
 # === Login function ===
 def login():
     email = email_entry.get().strip()
@@ -181,10 +201,16 @@ login_btn = tk.Button(main_frame, text="Login", command=login,
                      cursor="hand2")
 login_btn.pack(pady=10)
 
-# Status label (packed under button)
-status_label = tk.Label(main_frame, text="আপনার Email এবং Password দিন", 
-                       font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
-status_label.pack(pady=10)
+# Register link row (packed under button)
+link_frame = tk.Frame(main_frame, bg="#ecf0f1")
+link_frame.pack(pady=6)
+
+link_text = tk.Label(link_frame, text="Don't have an account? ", font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
+link_text.pack(side="left")
+
+register_link = tk.Label(link_frame, text="Register here", font=("Segoe UI", 10, "underline"), bg="#ecf0f1", fg="#3498db", cursor="hand2")
+register_link.pack(side="left")
+register_link.bind("<Button-1>", lambda e: open_register())
 
 # Bind Enter key to login
 root.bind('<Return>', on_enter)

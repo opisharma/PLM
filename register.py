@@ -1,5 +1,8 @@
 import re
 import hashlib
+import os
+import sys
+import subprocess
 from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox
@@ -119,6 +122,17 @@ class RegisterApp:
                 cursor="hand2",
             ).pack(pady=10)
 
+            # Login link below the button
+            link_frame = tk.Frame(main_frame, bg="#ecf0f1")
+            link_frame.pack(pady=6)
+
+            link_text = tk.Label(link_frame, text="Already have an account? ", font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
+            link_text.pack(side="left")
+
+            login_link = tk.Label(link_frame, text="Log in here", font=("Segoe UI", 10, "underline"), bg="#ecf0f1", fg="#3498db", cursor="hand2")
+            login_link.pack(side="left")
+            login_link.bind("<Button-1>", lambda e: self._go_to_login())
+
     def register_user(self):
         name = self.name_var.get().strip()
         email = self.email_var.get().strip()
@@ -168,7 +182,7 @@ class RegisterApp:
                 cursor.close()
 
             messagebox.showinfo("Success", "✅ Registration Successful!")
-            self.root.destroy()
+            self._go_to_login()
 
         except mysql.connector.IntegrityError as e:
             # Rely on DB unique constraints for email/phone
@@ -193,6 +207,26 @@ class RegisterApp:
         self.root.geometry(f"{width}x{height}+{x}+{y}")
         # Keep a reasonable minimum size but allow shrinking for mini window
         self.root.minsize(360, 420)
+
+    def _go_to_login(self):
+        """Open the login window and close the register window."""
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            login_path = os.path.join(script_dir, "login.py")
+            if os.path.exists(login_path):
+                subprocess.Popen([sys.executable, login_path], cwd=script_dir)
+                try:
+                    self.root.quit()
+                except Exception:
+                    pass
+                try:
+                    self.root.destroy()
+                except Exception:
+                    pass
+            else:
+                messagebox.showerror("Error", "login.py file not found!")
+        except Exception as e:
+            messagebox.showerror("Navigation Error", f"Failed to open login page: {e}")
 
 
 if __name__ == "__main__":
