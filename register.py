@@ -45,85 +45,79 @@ class RegisterApp:
         self._center_window()
 
     def _build_ui(self):
-        # Outer content container to manage centering and responsiveness
-        content = tk.Frame(self.root, bg="#ecf0f1")
-        content.pack(expand=True, fill="both")
+        # Header bar like login page
+            # Header bar like login page
+            header_frame = tk.Frame(self.root, bg="#3498db", height=60)
+            header_frame.pack(fill="x")
+            header_frame.pack_propagate(False)
 
-        # Grid weights to center child frame both horizontally and vertically
-        content.grid_rowconfigure(0, weight=1)
-        content.grid_rowconfigure(2, weight=1)
-        content.grid_columnconfigure(0, weight=1)
-        content.grid_columnconfigure(2, weight=1)
+            tk.Label(
+                header_frame,
+                text="🔐 Life Manager Register",
+                font=("Segoe UI", 18, "bold"),
+                bg="#3498db",
+                fg="white",
+            ).pack(expand=True)
 
-        # Center card
-        card = tk.Frame(content, bg="#ecf0f1")
-        card.grid(row=1, column=1, padx=20, pady=20)
+            # Main content like login page
+            main_frame = tk.Frame(self.root, bg="#ecf0f1")
+            main_frame.pack(expand=True, fill="both", padx=40, pady=30)
 
-        header = tk.Label(card, text="🔐 User Registration", font=("Helvetica", 18, "bold"), bg="#ecf0f1", fg="#2c3e50")
-        header.pack(pady=(0, 10))
+            label_font = ("Segoe UI", 12)
+            entry_opts = {"font": ("Segoe UI", 12), "relief": "solid", "borderwidth": 1, "bg": "white", "width": 30}
 
-        form = tk.Frame(card, bg="#ecf0f1")
-        form.pack(fill="x")
-        form.grid_columnconfigure(0, weight=0)
-        form.grid_columnconfigure(1, weight=1)
-        form.grid_columnconfigure(2, weight=0)
+            # Grid form for aligned rows without stretching in fullscreen
+            form = tk.Frame(main_frame, bg="#ecf0f1")
+            form.pack(fill="x")
+            form.grid_columnconfigure(0, weight=0)
+            form.grid_columnconfigure(1, weight=0)
 
-        label_opts = {"bg": "#ecf0f1", "fg": "#2c3e50", "font": ("Segoe UI", 11)}
-        entry_opts = {"font": ("Segoe UI", 11)}
+            # Name
+            tk.Label(form, text="Name:", font=label_font, bg="#ecf0f1").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=6)
+            tk.Entry(form, textvariable=self.name_var, **entry_opts).grid(row=0, column=1, sticky="w", pady=6, ipady=4)
 
-        # Name
-        tk.Label(form, text="Name:", **label_opts).grid(row=0, column=0, sticky="e", padx=(0, 10), pady=6)
-        tk.Entry(form, textvariable=self.name_var, **entry_opts).grid(row=0, column=1, sticky="ew", pady=6, ipady=3)
+            # Email
+            tk.Label(form, text="Email:", font=label_font, bg="#ecf0f1").grid(row=1, column=0, sticky="e", padx=(0, 10), pady=6)
+            tk.Entry(form, textvariable=self.email_var, **entry_opts).grid(row=1, column=1, sticky="w", pady=6, ipady=4)
 
-        # Email
-        tk.Label(form, text="Email:", **label_opts).grid(row=1, column=0, sticky="e", padx=(0, 10), pady=6)
-        tk.Entry(form, textvariable=self.email_var, **entry_opts).grid(row=1, column=1, sticky="ew", pady=6, ipady=3)
-
-        # DOB with calendar picker
-        tk.Label(form, text="Date of Birth (YYYY-MM-DD):", **label_opts).grid(row=2, column=0, sticky="e", padx=(0, 10), pady=6)
-        if DateEntry is not None:
-            def _open_calendar():
-                try:
-                    if hasattr(self.dob_input, "drop_down"):
-                        self.dob_input.drop_down()
-                    else:
-                        self.dob_input.event_generate("<Button-1>")
-                except Exception:
-                    try:
-                        self.dob_input.event_generate("<Button-1>")
-                    except Exception:
-                        pass
-
-            self.dob_input = DateEntry(
-                form,
-                textvariable=self.dob_var,
-                date_pattern="yyyy-mm-dd",
-                showweeknumbers=False,
-                state="readonly",
-            )
-            self.dob_input.grid(row=2, column=1, sticky="ew", pady=6, ipady=1)
-            tk.Button(form, text="📅", width=3, command=_open_calendar).grid(row=2, column=2, padx=(6, 0))
-        else:
-            # Fallback: plain entry + hint to install tkcalendar for picker
-            tk.Entry(form, textvariable=self.dob_var, **entry_opts).grid(row=2, column=1, sticky="ew", pady=6, ipady=3)
-            def _explain_calendar():
-                messagebox.showinfo(
-                    "Enable Date Picker",
-                    "To pick a date using a calendar, install the 'tkcalendar' package.\n\n"
-                    "Example: pip install tkcalendar"
+            # Date of Birth
+            tk.Label(form, text="Date of Birth (YYYY-MM-DD):", font=label_font, bg="#ecf0f1").grid(row=2, column=0, sticky="e", padx=(0, 10), pady=6)
+            if DateEntry is not None:
+                self.dob_input = DateEntry(
+                    form,
+                    textvariable=self.dob_var,
+                    date_pattern="yyyy-mm-dd",
+                    showweeknumbers=False,
+                    state="readonly",
+                    width=28,
                 )
-            # tk.Button(form, text="📅", width=3, command=_explain_calendar).grid(row=2, column=2, padx=(6, 0))
+                self.dob_input.grid(row=2, column=1, sticky="w", pady=6)
+            else:
+                tk.Entry(form, textvariable=self.dob_var, **entry_opts).grid(row=2, column=1, sticky="w", pady=6, ipady=4)
 
-        # Phone
-        tk.Label(form, text="Phone:", **label_opts).grid(row=3, column=0, sticky="e", padx=(0, 10), pady=6)
-        tk.Entry(form, textvariable=self.phone_var, **entry_opts).grid(row=3, column=1, sticky="ew", pady=6, ipady=3)
+            # Phone
+            tk.Label(form, text="Phone:", font=label_font, bg="#ecf0f1").grid(row=3, column=0, sticky="e", padx=(0, 10), pady=6)
+            tk.Entry(form, textvariable=self.phone_var, **entry_opts).grid(row=3, column=1, sticky="w", pady=6, ipady=4)
 
-        # Password
-        tk.Label(form, text="Password:", **label_opts).grid(row=4, column=0, sticky="e", padx=(0, 10), pady=6)
-        tk.Entry(form, show="*", textvariable=self.password_var, **entry_opts).grid(row=4, column=1, sticky="ew", pady=6, ipady=3)
+            # Password
+            tk.Label(form, text="Password:", font=label_font, bg="#ecf0f1").grid(row=4, column=0, sticky="e", padx=(0, 10), pady=6)
+            tk.Entry(form, show="*", textvariable=self.password_var, **entry_opts).grid(row=4, column=1, sticky="w", pady=(6, 12), ipady=4)
 
-        # Submit button centered
-        tk.Button(card, text="✅ Register", bg="#27ae60", fg="white", width=20, command=self.register_user, activebackground="#229954", relief="flat").pack(pady=15)
+            # Register button styled like login button
+            tk.Button(
+                main_frame,
+                text="Register",
+                command=self.register_user,
+                bg="#3498db",
+                fg="white",
+                font=("Segoe UI", 12, "bold"),
+                width=25,
+                height=2,
+                relief="flat",
+                activebackground="#2980b9",
+                activeforeground="white",
+                cursor="hand2",
+            ).pack(pady=10)
 
     def register_user(self):
         name = self.name_var.get().strip()
