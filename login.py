@@ -43,7 +43,7 @@ def launch_dashboard(user_data=None):
                 subprocess.Popen([sys.executable, dashboard_path], cwd=script_dir)
             return True
         else:
-            messagebox.showerror("Error", "dashboard.py file not found!")
+            messagebox.showerror("Dashboard Error", "Dashboard file 'dashboard.py' not found.")
             return False
             
     except Exception as e:
@@ -66,7 +66,7 @@ def open_register():
             except Exception:
                 pass
         else:
-            messagebox.showerror("Error", "register.py file not found!")
+            messagebox.showerror("Navigation Error", "Registration file 'register.py' not found.")
     except Exception as e:
         messagebox.showerror("Navigation Error", f"Failed to open register page: {str(e)}")
 
@@ -77,11 +77,11 @@ def login():
 
     # Input validation
     if not email or not password:
-        messagebox.showwarning("Validation Error", "⚠️ Email এবং Password দুটোই দিতে হবে!")
+        messagebox.showwarning("Validation Error", "Please enter both email and password.")
         return
 
     if len(password) < 6:
-        messagebox.showwarning("Validation Error", "⚠️ Password কমপক্ষে ৬ অক্ষরের হতে হবে!")
+        messagebox.showwarning("Validation Error", "Password must be at least 6 characters long.")
         return
 
     # Disable login button during processing
@@ -112,7 +112,7 @@ def login():
                 'email': result[2] if len(result) > 2 else None,
             }
             
-            messagebox.showinfo("Login Success", f"🎉 স্বাগতম {user_data.get('name') or user_data.get('email')}! Life Manager এ আপনাকে স্বাগতম!")
+            messagebox.showinfo("Login Successful", f"Welcome to Life Manager, {user_data.get('name') or user_data.get('email')}!")
             
             # Launch dashboard
             if launch_dashboard(user_data):
@@ -120,10 +120,10 @@ def login():
                 root.quit()  # Use quit() instead of destroy() for better cleanup
                 root.destroy()
             else:
-                messagebox.showerror("Error", "Dashboard খুলতে সমস্যা হয়েছে!")
+                messagebox.showerror("Dashboard Error", "Failed to open the dashboard.")
                 
         else:
-            messagebox.showerror("Login Failed", "❌ ভুল Email অথবা Password!")
+            messagebox.showerror("Login Failed", "Incorrect email or password.")
             # Clear password field
             password_entry.delete(0, tk.END)
             email_entry.focus()
