@@ -5,7 +5,7 @@ import hashlib
 import os
 import sys
 from db_connect import connect_db
-
+#Hell bai
 # === Database connection ===
 # Use shared connection helper from db_connect.py to keep a single source of truth
 
