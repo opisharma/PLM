@@ -163,23 +163,48 @@ def show_dashboard():
 
 # === Other Sections ===
 def show_expenses():
-    clear_frame()
-    
-    header_frame = Frame(content_frame, bg="#f39c12", height=70)
-    header_frame.pack(fill=X, pady=(0, 20))
-    header_frame.pack_propagate(False)
-    
-    Label(header_frame, text="💰 Expense Management System", font=("Segoe UI", 24, "bold"),
-          bg="#f39c12", fg="#ffffff").pack(pady=15)
-    
-    Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
-           bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
+    """Open the Expenses UI in a separate window (Toplevel)."""
+    try:
+        # Import here to avoid heavy import during dashboard-only runs
+        import Expenses_ui as expenses_module
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to load Expenses UI: {e}")
+        return
 
-    # Centering container
-    center_frame = Frame(content_frame, bg="#f8f9fc")
-    center_frame.pack(expand=True, fill=BOTH)
-    Label(center_frame, text="📊 Expense Management will be implemented soon..", 
-          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").place(relx=0.5, rely=0.5, anchor=CENTER)
+    # Create a Toplevel window and instantiate the expense tracker inside it.
+    try:
+        expenses_win = Toplevel(root)
+        expenses_win.title("Expenses - Life Manager")
+        # Size it reasonably; the Expenses UI will maximize itself if it prefers
+        expenses_win.geometry("1100x700")
+        expenses_win.transient(root)
+        # Instantiate the PersonalExpenseTracker with the Toplevel as root
+        try:
+            app = expenses_module.PersonalExpenseTracker(expenses_win)
+        except Exception as e:
+            # If the class expects a full tk.Tk and fails, fallback to launching module as process
+            try:
+                messagebox.showwarning("Warning", f"Embedded Expenses UI failed: {e}\nAttempting to open in a new process.")
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                expenses_path = os.path.join(script_dir, "Expenses_ui.py")
+                subprocess.Popen([sys.executable, expenses_path], cwd=script_dir)
+                expenses_win.destroy()
+                return
+            except Exception as inner:
+                messagebox.showerror("Error", f"Failed to open Expenses UI: {inner}")
+                expenses_win.destroy()
+                return
+
+        # Provide a Close button in the Toplevel to return to dashboard easily
+        try:
+            close_btn = Button(expenses_win, text="Close Expenses", command=expenses_win.destroy,
+                               bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat")
+            close_btn.pack(side="bottom", pady=8)
+        except Exception:
+            pass
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Unable to open Expenses window: {e}")
 
 def show_goals():
     clear_frame()

@@ -4,7 +4,7 @@ import mysql.connector
 DB_CONFIG = {
     "host": os.getenv("LM_DB_HOST", "localhost"),
     "user": os.getenv("LM_DB_USER", "root"),
-    "password": os.getenv("LM_DB_PASSWORD", "1234"),
+    "password": os.getenv("LM_DB_PASSWORD",""),
     "database": os.getenv("LM_DB_NAME", "life_manger"),  # set LM_DB_NAME=life_manager if needed
 }
 
