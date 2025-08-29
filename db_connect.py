@@ -1,22 +1,20 @@
-import os
 import mysql.connector
-
-DB_CONFIG = {
-    "host": os.getenv("LM_DB_HOST", "localhost"),
-    "user": os.getenv("LM_DB_USER", "root"),
-    "password": os.getenv("LM_DB_PASSWORD",""),
-    "database": os.getenv("LM_DB_NAME", "life_manger"),  # set LM_DB_NAME=life_manager if needed
-}
 
 def connect_db():
     try:
-        return mysql.connector.connect(**DB_CONFIG)
+        db = mysql.connector.connect(
+            host="localhost",     
+            user="root",          
+            password="",          
+            database="life_manger"  
+        )
+        print("✅ Connected to MySQL database successfully!")
+        return db
     except mysql.connector.Error as err:
-        print(f"❌ Failed to connect: {err}")
+        print("❌ Failed to connect:", err)
         return None
 
 if __name__ == "__main__":
-    conn = connect_db()
-    if conn:
-        print("✅ Connected to MySQL database successfully!")
-        conn.close()
+    connection = connect_db()
+    if connection:
+        connection.close()
