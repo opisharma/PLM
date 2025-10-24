@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 import sys
 import os
 import subprocess
+from datetime import datetime
 from tasks_ui import show_tasks as tasks_show_ui
 from expenses_ui import show_expenses as expenses_show_ui
 from goals_ui import show_goals as goals_show_ui
@@ -104,7 +105,58 @@ def show_dashboard():
     header_frame.pack_propagate(False)
 
     Label(header_frame, text="🧠 Life Manager Dashboard", font=("Segoe UI", 28, "bold"),
-          bg="#2c3e50", fg="#ffffff").pack(pady=20)
+          bg="#2c3e50", fg="#ffffff").pack(side=LEFT, padx=20)
+
+    # Clock and Date
+    clock_frame = Frame(header_frame, bg="#2c3e50")
+    clock_frame.pack(side=RIGHT, padx=20, pady=10)
+
+    time_label = Label(clock_frame, font=("Segoe UI", 22, "bold"), bg="#2c3e50", fg="#ffffff")
+    time_label.pack()
+    date_label = Label(clock_frame, font=("Segoe UI", 12), bg="#2c3e50", fg="#ecf0f1")
+    date_label.pack()
+
+    def update_clock():
+        now = datetime.now()
+        time_label.config(text=now.strftime("%H:%M:%S"))
+        date_label.config(text=now.strftime("%A, %B %d, %Y"))
+        header_frame.after(1000, update_clock)
+
+    update_clock()
+
+    # Quick Stats
+    stats_frame = Frame(content_frame, bg="#f8f9fc")
+    stats_frame.pack(fill=X, padx=40, pady=(0, 10))
+
+    def create_stat_item(parent, label, value, color):
+        frame = Frame(parent, bg=color, relief="raised", bd=1)
+        Label(frame, text=label, font=("Segoe UI", 11, "bold"), bg=color, fg="white").pack(padx=10, pady=(5,0))
+        Label(frame, text=value, font=("Segoe UI", 18, "bold"), bg=color, fg="white").pack(padx=10, pady=(0,5))
+        return frame
+
+    # Fetch stats from DB
+    try:
+        conn = connect_db()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM tasks WHERE status != 'Completed'")
+            pending_tasks = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM medications WHERE end_date >= CURDATE()")
+            active_meds = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM goals WHERE status != 'Achieved'")
+            active_goals = cursor.fetchone()[0]
+            conn.close()
+        else:
+            pending_tasks, active_meds, active_goals = "N/A", "N/A", "N/A"
+    except Exception:
+        pending_tasks, active_meds, active_goals = "N/A", "N/A", "N/A"
+
+    stat1 = create_stat_item(stats_frame, "Pending Tasks", pending_tasks, "#e74c3c")
+    stat1.pack(side=LEFT, expand=True, fill=X, padx=5)
+    stat2 = create_stat_item(stats_frame, "Active Meds", active_meds, "#16a085")
+    stat2.pack(side=LEFT, expand=True, fill=X, padx=5)
+    stat3 = create_stat_item(stats_frame, "Active Goals", active_goals, "#8e44ad")
+    stat3.pack(side=LEFT, expand=True, fill=X, padx=5)
 
     # Welcome message with user name
     welcome_frame = Frame(content_frame, bg="#ecf0f1", relief="raised", bd=1)
