@@ -5,7 +5,7 @@ def connect_db():
         db = mysql.connector.connect(
             host="localhost",     
             user="root",          
-            password="",          
+            password="PhpMyAdmin12*#",          
             database="life_manger"  
         )
         print("✅ Connected to MySQL database successfully!")
