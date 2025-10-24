@@ -169,79 +169,76 @@ def on_enter(event):
 
 
 def run_login_app():
-    """Create and run the Login UI. Safe to import this module without creating windows."""
+    """Create and run the modernized Login UI."""
     global root, email_entry, password_entry, login_btn
 
-    # UI Setup
+    # --- UI Setup ---
     root = tk.Tk()
     root.title("Login - Life Manager")
-    root.geometry("640x520")  # Match register.py window size
-    root.resizable(True, True)
-    root.configure(bg="#ecf0f1")
+    root.geometry("900x600")
+    root.configure(bg="#f0f2f5")  # Light grey background
+    root.resizable(False, False)
 
-    # Initial placement; final centering will be applied after layout
+    # Center the window
     root.eval('tk::PlaceWindow . center')
 
-    # Header
-    header_frame = tk.Frame(root, bg="#3498db", height=60)
-    header_frame.pack(fill="x")
-    header_frame.pack_propagate(False)
+    # --- Main Content Frame (Card Layout) ---
+    main_frame = tk.Frame(root, bg="white")
+    main_frame.place(relx=0.5, rely=0.5, anchor="center", width=400, height=480)
+    
+    # To prevent the frame from shrinking
+    main_frame.pack_propagate(False)
 
-    tk.Label(header_frame, text="🔐 Life Manager Login",
-             font=("Segoe UI", 18, "bold"),
-             bg="#3498db", fg="white").pack(expand=True)
+    # --- Header ---
+    tk.Label(main_frame, text="Welcome Back!",
+             font=("Segoe UI", 22, "bold"),
+             bg="white", fg="#333").pack(pady=(40, 10))
+    tk.Label(main_frame, text="Sign in to continue to Life Manager",
+             font=("Segoe UI", 11),
+             bg="white", fg="#666").pack(pady=(0, 35))
 
-    # Main content
-    main_frame = tk.Frame(root, bg="#ecf0f1")
-    main_frame.pack(expand=True, fill="both", padx=40, pady=30)
+    # --- Form Fields ---
+    form_frame = tk.Frame(main_frame, bg="white")
+    form_frame.pack(pady=10, padx=40, fill="x")
 
-    # Aligned form using grid (labels and inputs on same row)
-    label_font = ("Segoe UI", 12)
-    entry_opts = {"font": ("Segoe UI", 12), "width": 30, "relief": "solid", "borderwidth": 1, "bg": "white"}
+    # Email
+    email_label = tk.Label(form_frame, text="Email Address", font=("Segoe UI", 10), bg="white", fg="#555")
+    email_label.pack(anchor="w", pady=(0, 5))
+    
+    email_entry = tk.Entry(form_frame, font=("Segoe UI", 12), width=30, relief="solid", borderwidth=1, bg="#fdfdfe")
+    email_entry.pack(ipady=8, fill="x")
 
-    form = tk.Frame(main_frame, bg="#ecf0f1")
-    form.pack(fill="x")
-    form.grid_columnconfigure(0, weight=0)
-    form.grid_columnconfigure(1, weight=0)
+    # Password
+    password_label = tk.Label(form_frame, text="Password", font=("Segoe UI", 10), bg="white", fg="#555")
+    password_label.pack(anchor="w", pady=(15, 5))
 
-    # Email row
-    tk.Label(form, text="Email:", font=label_font, bg="#ecf0f1").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=6)
-    email_entry = tk.Entry(form, **entry_opts)
-    email_entry.grid(row=0, column=1, sticky="w", pady=6, ipady=4)
+    password_entry = tk.Entry(form_frame, show="*", font=("Segoe UI", 12), width=30, relief="solid", borderwidth=1, bg="#fdfdfe")
+    password_entry.pack(ipady=8, fill="x")
 
-    # Password row
-    tk.Label(form, text="Password:", font=label_font, bg="#ecf0f1").grid(row=1, column=0, sticky="e", padx=(0, 10), pady=6)
-    password_entry = tk.Entry(form, show="*", **entry_opts)
-    password_entry.grid(row=1, column=1, sticky="w", pady=(6, 12), ipady=4)
-
-    # Login button (packed below the form, like register screen)
+    # --- Login Button ---
     login_btn = tk.Button(main_frame, text="Login", command=login,
-                         bg="#3498db", fg="white", font=("Segoe UI", 12, "bold"),
-                         width=25, height=2, relief="flat",
-                         activebackground="#2980b9", activeforeground="white",
-                         cursor="hand2")
-    login_btn.pack(pady=10)
+                          bg="#3498db", fg="white", font=("Segoe UI", 12, "bold"),
+                          relief="flat", cursor="hand2",
+                          activebackground="#2980b9", activeforeground="white")
+    login_btn.pack(pady=30, ipady=8, fill="x", padx=40)
 
-    # Register link row (packed under button)
-    link_frame = tk.Frame(main_frame, bg="#ecf0f1")
-    link_frame.pack(pady=6)
+    # --- Register Link ---
+    link_frame = tk.Frame(main_frame, bg="white")
+    link_frame.pack(pady=10)
 
-    link_text = tk.Label(link_frame, text="Don't have an account? ", font=("Segoe UI", 10), bg="#ecf0f1", fg="#7f8c8d")
-    link_text.pack(side="left")
-
-    register_link = tk.Label(link_frame, text="Register here", font=("Segoe UI", 10, "underline"), bg="#ecf0f1", fg="#3498db", cursor="hand2")
-    register_link.pack(side="left")
+    tk.Label(link_frame, text="Don't have an account?", font=("Segoe UI", 10), bg="white", fg="#7f8c8d").pack(side="left")
+    
+    register_link = tk.Label(link_frame, text="Register here", font=("Segoe UI", 10, "underline"), bg="white", fg="#3498db", cursor="hand2")
+    register_link.pack(side="left", padx=5)
     register_link.bind("<Button-1>", lambda e: open_register())
 
-    # Bind Enter key to login
+    # --- Bindings and Focus ---
     root.bind('<Return>', on_enter)
     password_entry.bind('<Return>', on_enter)
     email_entry.bind('<Return>', on_enter)
-
-    # Focus on email entry
     email_entry.focus()
 
-    # Handle window close
+    # --- Window Close Handler ---
     def on_closing():
         try:
             if root is not None and root.winfo_exists():
@@ -252,18 +249,8 @@ def run_login_app():
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
 
-    # Start the GUI
+    # --- Start the GUI ---
     try:
-        # Final centering after layout
-        root.update_idletasks()
-        w = root.winfo_width()
-        h = root.winfo_height()
-        sw = root.winfo_screenwidth()
-        sh = root.winfo_screenheight()
-        x = (sw // 2) - (w // 2)
-        y = (sh // 2) - (h // 2)
-        root.geometry(f"{w}x{h}+{x}+{y}")
-        root.minsize(360, 420)
         root.mainloop()
     except KeyboardInterrupt:
         print("\n⚠️ Application interrupted by user")
