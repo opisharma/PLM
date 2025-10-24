@@ -5,6 +5,8 @@ import os
 import subprocess
 from tasks_ui import show_tasks as tasks_show_ui
 from expenses_ui import show_expenses as expenses_show_ui
+from goals_ui import show_goals as goals_show_ui
+from medications_ui import show_medications as medications_show_ui
 
 # Prefer shared DB connector from db_connect; fallback to local if unavailable
 try:
@@ -132,8 +134,8 @@ def show_dashboard():
     cards = [
         {"emoji": "✅", "title": "Tasks\nManagement", "command": lambda: tasks_show_ui(content_frame, connect_db, show_dashboard), "color": "#27ae60", "hover": "#229954"},
         {"emoji": "💰", "title": "Expense\nTracker", "command": lambda: expenses_show_ui(content_frame, connect_db, show_dashboard), "color": "#f39c12", "hover": "#e67e22"},
-        {"emoji": "🎯", "title": "Goal\nSetting", "command": show_goals, "color": "#8e44ad", "hover": "#7d3c98"},
-        {"emoji": "💊", "title": "Medication\nReminder", "command": show_medications, "color": "#16a085", "hover": "#138d75"},
+        {"emoji": "🎯", "title": "Goal\nSetting", "command": lambda: goals_show_ui(content_frame, connect_db, show_dashboard), "color": "#8e44ad", "hover": "#7d3c98"},
+        {"emoji": "💊", "title": "Medication\nReminder", "command": lambda: medications_show_ui(content_frame, connect_db, show_dashboard), "color": "#16a085", "hover": "#138d75"},
         {"emoji": "🔧", "title": "Settings\n& Config", "command": show_settings, "color": "#34495e", "hover": "#2c3e50"},
     ]
 
@@ -168,40 +170,12 @@ def show_expenses():
     expenses_show_ui(content_frame, connect_db, show_dashboard)
 
 def show_goals():
-    clear_frame()
-    
-    header_frame = Frame(content_frame, bg="#8e44ad", height=70)
-    header_frame.pack(fill=X, pady=(0, 20))
-    header_frame.pack_propagate(False)
-    
-    Label(header_frame, text="🎯 Goal Achievement System", font=("Segoe UI", 24, "bold"),
-          bg="#8e44ad", fg="#ffffff").pack(pady=15)
-    
-    Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
-           bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
-    
-    center_frame = Frame(content_frame, bg="#f8f9fc")
-    center_frame.pack(expand=True, fill=BOTH)
-    Label(center_frame, text="🌟 Goal Setting Module - Coming Soon!",
-          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").place(relx=0.5, rely=0.5, anchor=CENTER)
+    """Wrapper to render the goals UI in the content frame."""
+    goals_show_ui(content_frame, connect_db, show_dashboard)
 
 def show_medications():
-    clear_frame()
-    
-    header_frame = Frame(content_frame, bg="#16a085", height=70)
-    header_frame.pack(fill=X, pady=(0, 20))
-    header_frame.pack_propagate(False)
-    
-    Label(header_frame, text="💊 Medication Reminder System", font=("Segoe UI", 24, "bold"),
-          bg="#16a085", fg="#ffffff").pack(pady=15)
-    
-    Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
-           bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
-    
-    center_frame = Frame(content_frame, bg="#f8f9fc")
-    center_frame.pack(expand=True, fill=BOTH)
-    Label(center_frame, text="⏰ Medication Tracking - Under Development", 
-          font=("Segoe UI", 16), bg="#f8f9fc", fg="#7f8c8d").place(relx=0.5, rely=0.5, anchor=CENTER)
+    """Wrapper to render the medications UI in the content frame."""
+    medications_show_ui(content_frame, connect_db, show_dashboard)
 
 def show_settings():
     clear_frame()
