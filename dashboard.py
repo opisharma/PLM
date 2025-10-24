@@ -171,24 +171,43 @@ def show_dashboard():
     cards_container.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
     def create_card(parent, emoji, title, command, color, hover_color):
-        card_frame = Frame(parent, bg="#ffffff", relief="raised", bd=2)
-        
-        card = Button(card_frame, text=f"{emoji}\n{title}", width=18, height=8,
-                      bg=color, fg="white", font=("Segoe UI", 14, "bold"),
-                      relief="flat", bd=0, cursor="hand2", command=command,
-                      wraplength=120, justify="center", activebackground=hover_color,
-                      activeforeground="white")
-        card.pack(padx=5, pady=5, fill=BOTH, expand=True)
-        
+        card_frame = Frame(parent, bg="#ffffff", relief="solid", bd=1, highlightbackground="#e0e0e0", highlightthickness=1)
+        card_frame.config(cursor="hand2")
+
+        emoji_label = Label(card_frame, text=emoji, font=("Segoe UI", 32), bg="white", fg=color)
+        emoji_label.pack(pady=(20, 10))
+
+        title_label = Label(card_frame, text=title, font=("Segoe UI", 13, "bold"), bg="white", fg="#333333", wraplength=150, justify="center")
+        title_label.pack(pady=(0, 20), padx=10, fill="x")
+
+        # --- Hover and Click Bindings ---
+        def on_enter(e):
+            card_frame.config(bg=hover_color)
+            for child in card_frame.winfo_children():
+                child.config(bg=hover_color, fg="white")
+
+        def on_leave(e):
+            card_frame.config(bg="white")
+            emoji_label.config(fg=color)
+            title_label.config(fg="#333333")
+            for child in card_frame.winfo_children():
+                child.config(bg="white")
+
+        # Bind events to all widgets for a seamless experience
+        for widget in [card_frame, emoji_label, title_label]:
+            widget.bind("<Enter>", on_enter)
+            widget.bind("<Leave>", on_leave)
+            widget.bind("<Button-1>", lambda e: command())
+
         return card_frame
 
     # Card definitions with hover colors
     cards = [
-        {"emoji": "✅", "title": "Tasks\nManagement", "command": lambda: tasks_show_ui(content_frame, connect_db, show_dashboard), "color": "#27ae60", "hover": "#229954"},
-        {"emoji": "💰", "title": "Expense\nTracker", "command": lambda: expenses_show_ui(content_frame, connect_db, show_dashboard), "color": "#f39c12", "hover": "#e67e22"},
-        {"emoji": "🎯", "title": "Goal\nSetting", "command": lambda: goals_show_ui(content_frame, connect_db, show_dashboard), "color": "#8e44ad", "hover": "#7d3c98"},
-        {"emoji": "💊", "title": "Medication\nReminder", "command": lambda: medications_show_ui(content_frame, connect_db, show_dashboard), "color": "#16a085", "hover": "#138d75"},
-        {"emoji": "🔧", "title": "Settings\n& Config", "command": show_settings, "color": "#34495e", "hover": "#2c3e50"},
+        {"emoji": "✅", "title": "Task Management", "command": lambda: tasks_show_ui(content_frame, connect_db, show_dashboard), "color": "#27ae60", "hover": "#2ecc71"},
+        {"emoji": "💰", "title": "Expense Tracker", "command": lambda: expenses_show_ui(content_frame, connect_db, show_dashboard), "color": "#f39c12", "hover": "#f1c40f"},
+        {"emoji": "🎯", "title": "Goal Setting", "command": lambda: goals_show_ui(content_frame, connect_db, show_dashboard), "color": "#8e44ad", "hover": "#9b59b6"},
+        {"emoji": "💊", "title": "Medication Reminder", "command": lambda: medications_show_ui(content_frame, connect_db, show_dashboard), "color": "#16a085", "hover": "#1abc9c"},
+        {"emoji": "🔧", "title": "Settings & Config", "command": show_settings, "color": "#34495e", "hover": "#5d6d7e"},
     ]
 
     # Create grid layout for cards
