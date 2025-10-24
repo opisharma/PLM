@@ -176,6 +176,52 @@ def show_expenses(parent_frame: Frame, connect_db, go_back):
 
     all_rows = []  # cache for filtering/sorting
 
+    # Helper to convert various date representations (str/date/datetime) to a date
+    def _to_date(val):
+        try:
+            # If it's already a datetime/date-like with year/month/day
+            if hasattr(val, "year") and hasattr(val, "month") and hasattr(val, "day"):
+                # If datetime, convert to date
+                try:
+                    if isinstance(val, datetime):
+                        return val.date()
+                except Exception:
+                    pass
+                # Assume it's a date-like
+                from datetime import date as _date_cls  # local import to avoid top-level
+                try:
+                    if isinstance(val, _date_cls):
+                        return val
+                except Exception:
+                    pass
+                # Fallback: build date from attributes
+                try:
+                    return datetime(int(val.year), int(val.month), int(val.day)).date()
+                except Exception:
+                    return None
+
+            # If it's a string, try multiple formats
+            if isinstance(val, str):
+                fmts = [
+                    "%Y-%m-%d",
+                    "%Y/%m/%d",
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%dT%H:%M:%S",
+                ]
+                for f in fmts:
+                    try:
+                        return datetime.strptime(val, f).date()
+                    except Exception:
+                        pass
+                # Try fromisoformat
+                try:
+                    return datetime.fromisoformat(val).date()
+                except Exception:
+                    return None
+        except Exception:
+            return None
+        return None
+
     def render_rows(rows):
         # Clear existing
         for child in expense_table.get_children():
@@ -525,7 +571,12 @@ def show_expenses(parent_frame: Frame, connect_db, go_back):
 
     def _update_year_options():
         try:
-            years = sorted({str(datetime.strptime(r["date"], "%Y-%m-%d").year) for r in all_rows}, reverse=True)
+            years = set()
+            for r in all_rows:
+                d = _to_date(r.get("date"))
+                if d:
+                    years.add(str(d.year))
+            years = sorted(years, reverse=True)
         except Exception:
             years = [str(datetime.now().year)]
         if not years:
@@ -557,9 +608,8 @@ def show_expenses(parent_frame: Frame, connect_db, go_back):
 
         totals = {}
         for r in all_rows:
-            try:
-                d = datetime.strptime(r["date"], "%Y-%m-%d")
-            except Exception:
+            d = _to_date(r.get("date"))
+            if not d:
                 continue
             if d.year == y and d.month == m:
                 cat = r.get("category") or "General"
