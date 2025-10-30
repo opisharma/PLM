@@ -214,7 +214,9 @@ class RegisterApp:
             script_dir = os.path.dirname(os.path.abspath(__file__))
             login_path = os.path.join(script_dir, "login.py")
             if os.path.exists(login_path):
-                subprocess.Popen([sys.executable, login_path], cwd=script_dir)
+                geometry = self.root.geometry()
+                args = [sys.executable, login_path, f"--geometry={geometry}"]
+                subprocess.Popen(args, cwd=script_dir)
                 try:
                     self.root.quit()
                 except Exception:

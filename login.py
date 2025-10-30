@@ -168,6 +168,16 @@ def on_enter(event):
     login()
 
 
+def center_window(window, width, height):
+    """Center a tkinter window on the screen."""
+    window.update_idletasks()
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width // 2) - (width // 2)
+    y = (screen_height // 2) - (height // 2)
+    window.geometry(f'{width}x{height}+{x}+{y}')
+
+
 def run_login_app():
     """Create and run the modernized Login UI."""
     global root, email_entry, password_entry, login_btn
@@ -175,12 +185,26 @@ def run_login_app():
     # --- UI Setup ---
     root = tk.Tk()
     root.title("Login - Life Manager")
-    root.geometry("900x600")
+
+    # --- Geometry Handling ---
+    # Default geometry and check for passed argument
+    geometry_arg = next((arg for arg in sys.argv if arg.startswith('--geometry=')), None)
+    if geometry_arg:
+        try:
+            # Format is --geometry=WIDTHxHEIGHT+X+Y
+            geometry_str = geometry_arg.split('=', 1)[1]
+            root.geometry(geometry_str)
+        except Exception:
+            # Fallback to default if parsing fails
+            root.geometry("900x600")
+            center_window(root, 900, 600)
+    else:
+        # Center the window if no geometry is passed
+        root.geometry("900x600")
+        center_window(root, 900, 600)
+
     root.configure(bg="#f0f2f5")  # Light grey background
     root.resizable(False, False)
-
-    # Center the window
-    root.eval('tk::PlaceWindow . center')
 
     # --- Main Content Frame (Card Layout) ---
     main_frame = tk.Frame(root, bg="white")
