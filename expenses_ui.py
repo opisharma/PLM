@@ -11,6 +11,13 @@ try:
 except Exception:
     _MATPLOTLIB_AVAILABLE = False
 
+try:
+    from tkcalendar import DateEntry
+    _TKCALENDAR_AVAILABLE = True
+except ImportError:
+    _TKCALENDAR_AVAILABLE = False
+
+
 
 def _clear_frame(frame: Frame):
     for widget in frame.winfo_children():
@@ -114,14 +121,17 @@ def show_expenses(parent_frame: Frame, connect_db, go_back):
     )
     category_combo.grid(row=2, column=1, padx=10, pady=(0, 6), sticky=W)
 
-    Label(form_frame, text="Date (YYYY-MM-DD):", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=3, column=0, sticky=W, pady=(0, 6))
-    date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+    Label(form_frame, text="Date:", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=3, column=0, sticky=W, pady=(0, 6))
+    if _TKCALENDAR_AVAILABLE:
+        date_entry = DateEntry(form_frame, width=26, background='darkblue',
+                               foreground='white', borderwidth=2, date_pattern='y-mm-dd', font=("Segoe UI", 11))
+    else:
+        date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+        try:
+            date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        except Exception:
+            pass
     date_entry.grid(row=3, column=1, padx=10, pady=(0, 6), sticky=W)
-    # default to today
-    try:
-        date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
-    except Exception:
-        pass
 
     Label(form_frame, text="Payment Method:", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=4, column=0, sticky=W, pady=(0, 6))
     payment_var = StringVar(value="Cash")
