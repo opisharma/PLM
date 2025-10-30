@@ -8,6 +8,9 @@ from tasks_ui import show_tasks as tasks_show_ui
 from expenses_ui import show_expenses as expenses_show_ui
 from goals_ui import show_goals as goals_show_ui
 from medications_ui import show_medications as medications_show_ui
+from app_config import get_theme_colors, set_theme, set_language
+from localization import get_text, TRANSLATIONS
+
 
 # Prefer shared DB connector from db_connect; fallback to local if unavailable
 try:
@@ -34,6 +37,7 @@ except Exception:
 current_user = "Admin"  # Default user
 root = None
 content_frame = None
+
 
 # === Utilities ===
 def center_window(win: Tk, width: int | None = None, height: int | None = None):
@@ -98,22 +102,24 @@ def clear_frame():
 # === Show Dashboard (Main Entry Point) ===
 def show_dashboard():
     clear_frame()
+    colors = get_theme_colors()
+    content_frame.config(bg=colors["bg"])
 
     # Header with gradient-like effect
-    header_frame = Frame(content_frame, bg="#2c3e50", height=80)
+    header_frame = Frame(content_frame, bg=colors["header_bg"], height=80)
     header_frame.pack(fill=X, pady=(0, 20))
     header_frame.pack_propagate(False)
 
-    Label(header_frame, text="🧠 Life Manager Dashboard", font=("Segoe UI", 28, "bold"),
-          bg="#2c3e50", fg="#ffffff").pack(side=LEFT, padx=20)
+    Label(header_frame, text=get_text("dashboard_title"), font=("Segoe UI", 28, "bold"),
+          bg=colors["header_bg"], fg=colors["header_fg"]).pack(side=LEFT, padx=20)
 
     # Clock and Date
-    clock_frame = Frame(header_frame, bg="#2c3e50")
+    clock_frame = Frame(header_frame, bg=colors["header_bg"])
     clock_frame.pack(side=RIGHT, padx=20, pady=10)
 
-    time_label = Label(clock_frame, font=("Segoe UI", 22, "bold"), bg="#2c3e50", fg="#ffffff")
+    time_label = Label(clock_frame, font=("Segoe UI", 22, "bold"), bg=colors["header_bg"], fg=colors["header_fg"])
     time_label.pack()
-    date_label = Label(clock_frame, font=("Segoe UI", 12), bg="#2c3e50", fg="#ecf0f1")
+    date_label = Label(clock_frame, font=("Segoe UI", 12), bg=colors["header_bg"], fg=colors["header_fg"])
     date_label.pack()
 
     def update_clock():
@@ -125,12 +131,12 @@ def show_dashboard():
     update_clock()
 
     # Quick Stats
-    stats_frame = Frame(content_frame, bg="#f8f9fc")
+    stats_frame = Frame(content_frame, bg=colors["bg"])
     stats_frame.pack(fill=X, padx=40, pady=(0, 10))
 
-    def create_stat_item(parent, label, value, color):
+    def create_stat_item(parent, label_key, value, color):
         frame = Frame(parent, bg=color, relief="raised", bd=1)
-        Label(frame, text=label, font=("Segoe UI", 11, "bold"), bg=color, fg="white").pack(padx=10, pady=(5,0))
+        Label(frame, text=get_text(label_key), font=("Segoe UI", 11, "bold"), bg=color, fg="white").pack(padx=10, pady=(5,0))
         Label(frame, text=value, font=("Segoe UI", 18, "bold"), bg=color, fg="white").pack(padx=10, pady=(0,5))
         return frame
 
@@ -154,35 +160,35 @@ def show_dashboard():
     except Exception:
         pending_tasks, active_meds, active_goals, monthly_expense = "N/A", "N/A", "N/A", "N/A"
 
-    stat1 = create_stat_item(stats_frame, "Pending Tasks", pending_tasks, "#e74c3c")
+    stat1 = create_stat_item(stats_frame, "pending_tasks", pending_tasks, "#e74c3c")
     stat1.pack(side=LEFT, expand=True, fill=X, padx=5)
-    stat2 = create_stat_item(stats_frame, "Active Meds", active_meds, "#16a085")
+    stat2 = create_stat_item(stats_frame, "active_meds", active_meds, "#16a085")
     stat2.pack(side=LEFT, expand=True, fill=X, padx=5)
-    stat3 = create_stat_item(stats_frame, "Active Goals", active_goals, "#8e44ad")
+    stat3 = create_stat_item(stats_frame, "active_goals", active_goals, "#8e44ad")
     stat3.pack(side=LEFT, expand=True, fill=X, padx=5)
-    stat4 = create_stat_item(stats_frame, "Monthly Expense", monthly_expense, "#f39c12")
+    stat4 = create_stat_item(stats_frame, "monthly_expense", monthly_expense, "#f39c12")
     stat4.pack(side=LEFT, expand=True, fill=X, padx=5)
 
     # Welcome message with user name
-    welcome_frame = Frame(content_frame, bg="#ecf0f1", relief="raised", bd=1)
+    welcome_frame = Frame(content_frame, bg=colors["card_bg"], relief="raised", bd=1)
     welcome_frame.pack(fill=X, padx=40, pady=10)
     
-    welcome_text = f"✨ Welcome {current_user}! Manage your life efficiently ✨"
+    welcome_text = get_text("welcome_message", user=current_user)
     Label(welcome_frame, text=welcome_text, 
-          font=("Segoe UI", 16, "italic"), bg="#ecf0f1", fg="#34495e").pack(pady=15)
+          font=("Segoe UI", 16, "italic"), bg=colors["card_bg"], fg=colors["fg"]).pack(pady=15)
 
     # Cards container with better spacing
-    cards_container = Frame(content_frame, bg="#f8f9fc")
+    cards_container = Frame(content_frame, bg=colors["bg"])
     cards_container.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
-    def create_card(parent, emoji, title, command, color, hover_color):
-        card_frame = Frame(parent, bg="#ffffff", relief="solid", bd=1, highlightbackground="#e0e0e0", highlightthickness=1)
+    def create_card(parent, emoji, title_key, command, color, hover_color):
+        card_frame = Frame(parent, bg=colors["card_bg"], relief="solid", bd=1, highlightbackground="#e0e0e0", highlightthickness=1)
         card_frame.config(cursor="hand2")
 
-        emoji_label = Label(card_frame, text=emoji, font=("Segoe UI", 32), bg="white", fg=color)
+        emoji_label = Label(card_frame, text=emoji, font=("Segoe UI", 32), bg=colors["card_bg"], fg=color)
         emoji_label.pack(pady=(20, 10))
 
-        title_label = Label(card_frame, text=title, font=("Segoe UI", 13, "bold"), bg="white", fg="#333333", wraplength=150, justify="center")
+        title_label = Label(card_frame, text=get_text(title_key), font=("Segoe UI", 13, "bold"), bg=colors["card_bg"], fg=colors["fg"], wraplength=150, justify="center")
         title_label.pack(pady=(0, 20), padx=10, fill="x")
 
         # --- Hover and Click Bindings ---
@@ -192,11 +198,9 @@ def show_dashboard():
                 child.config(bg=hover_color, fg="white")
 
         def on_leave(e):
-            card_frame.config(bg="white")
+            card_frame.config(bg=colors["card_bg"])
             emoji_label.config(fg=color)
-            title_label.config(fg="#333333")
-            for child in card_frame.winfo_children():
-                child.config(bg="white")
+            title_label.config(fg=colors["fg"])
 
         # Bind events to all widgets for a seamless experience
         for widget in [card_frame, emoji_label, title_label]:
@@ -208,11 +212,11 @@ def show_dashboard():
 
     # Card definitions with hover colors
     cards = [
-        {"emoji": "✅", "title": "Task Management", "command": lambda: tasks_show_ui(content_frame, connect_db, show_dashboard), "color": "#27ae60", "hover": "#2ecc71"},
-        {"emoji": "💰", "title": "Expense Tracker", "command": lambda: expenses_show_ui(content_frame, connect_db, show_dashboard), "color": "#f39c12", "hover": "#f1c40f"},
-        {"emoji": "🎯", "title": "Goal Setting", "command": lambda: goals_show_ui(content_frame, connect_db, show_dashboard), "color": "#8e44ad", "hover": "#9b59b6"},
-        {"emoji": "💊", "title": "Medication Reminder", "command": lambda: medications_show_ui(content_frame, connect_db, show_dashboard), "color": "#16a085", "hover": "#1abc9c"},
-        {"emoji": "🔧", "title": "Settings & Config", "command": show_settings, "color": "#34495e", "hover": "#5d6d7e"},
+        {"emoji": "✅", "title_key": "task_management", "command": lambda: tasks_show_ui(content_frame, connect_db, show_dashboard), "color": "#27ae60", "hover": "#2ecc71"},
+        {"emoji": "💰", "title_key": "expense_tracker", "command": lambda: expenses_show_ui(content_frame, connect_db, show_dashboard), "color": "#f39c12", "hover": "#f1c40f"},
+        {"emoji": "🎯", "title_key": "goal_setting", "command": lambda: goals_show_ui(content_frame, connect_db, show_dashboard), "color": "#8e44ad", "hover": "#9b59b6"},
+        {"emoji": "💊", "title_key": "medication_reminder", "command": lambda: medications_show_ui(content_frame, connect_db, show_dashboard), "color": "#16a085", "hover": "#1abc9c"},
+        {"emoji": "🔧", "title_key": "settings_config", "command": show_settings, "color": "#34495e", "hover": "#5d6d7e"},
     ]
 
     # Create grid layout for cards
@@ -220,7 +224,7 @@ def show_dashboard():
         row = i // 3
         col = i % 3
         
-        card = create_card(cards_container, card_info["emoji"], card_info["title"], 
+        card = create_card(cards_container, card_info["emoji"], card_info["title_key"], 
                           card_info["command"], card_info["color"], card_info["hover"])
         card.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
 
@@ -231,12 +235,13 @@ def show_dashboard():
         cards_container.rowconfigure(i, weight=1)
 
     # Footer with info
-    footer_frame = Frame(content_frame, bg="#34495e", height=40)
+    footer_frame = Frame(content_frame, bg=colors["footer_bg"], height=40)
     footer_frame.pack(fill=X, side=BOTTOM)
     footer_frame.pack_propagate(False)
     
-    Label(footer_frame, text="💡 Manage your life efficiently with our integrated system | Direct Access Mode", 
-          font=("Segoe UI", 11), bg="#34495e", fg="#ecf0f1").pack(pady=10)
+    Label(footer_frame, text=f'{get_text("footer_text")} | Direct Access Mode', 
+          font=("Segoe UI", 11), bg=colors["footer_bg"], fg=colors["footer_fg"]).pack(pady=10)
+
 
     # removed inline show_tasks; delegated to tasks_ui.show_tasks
 
@@ -255,37 +260,68 @@ def show_medications():
 
 def show_settings():
     clear_frame()
+    colors = get_theme_colors()
+    content_frame.config(bg=colors["bg"])
     
-    header_frame = Frame(content_frame, bg="#34495e", height=70)
+    header_frame = Frame(content_frame, bg=colors["header_bg"], height=70)
     header_frame.pack(fill=X, pady=(0, 20))
     header_frame.pack_propagate(False)
     
-    Label(header_frame, text="🔧 Settings & Configuration", font=("Segoe UI", 24, "bold"),
-          bg="#34495e", fg="#ffffff").pack(pady=15)
+    Label(header_frame, text=get_text("settings_title"), font=("Segoe UI", 24, "bold"),
+          bg=colors["header_bg"], fg=colors["header_fg"]).pack(pady=15)
     
-    Button(content_frame, text="🏠 Back to Dashboard", command=show_dashboard, 
-           bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat").pack(pady=10)
+    Button(content_frame, text=get_text("back_to_dashboard"), command=show_dashboard, 
+           bg=colors["button_bg"], fg=colors["button_fg"], font=("Segoe UI", 10), relief="flat").pack(pady=10)
     
     # Settings Panel
-    settings_container = Frame(content_frame, bg="#ffffff", relief="raised", bd=2)
+    settings_container = Frame(content_frame, bg=colors["card_bg"], relief="raised", bd=2)
     settings_container.pack(fill=X, padx=40, pady=20)
     
-    Label(settings_container, text="⚙️ Application Settings", font=("Segoe UI", 16, "bold"),
-          bg="#ffffff", fg="#2c3e50").pack(pady=15)
+    Label(settings_container, text=get_text("app_settings"), font=("Segoe UI", 16, "bold"),
+          bg=colors["card_bg"], fg=colors["fg"]).pack(pady=15)
     
-    settings_frame = Frame(settings_container, bg="#ffffff")
-    settings_frame.pack(pady=10, padx=20)
+    settings_frame = Frame(settings_container, bg=colors["card_bg"])
+    settings_frame.pack(pady=10, padx=20, fill=X)
     
-    Label(settings_frame, text=f"👤 Current User: {current_user}", 
-          font=("Segoe UI", 12), bg="#ffffff", fg="#2c3e50").pack(pady=10, anchor=W)
+    # Theme Selection
+    theme_frame = Frame(settings_frame, bg=colors["card_bg"])
+    theme_frame.pack(fill=X, pady=10)
+    Label(theme_frame, text=get_text("theme_selection"), font=("Segoe UI", 12, "bold"), bg=colors["card_bg"], fg=colors["fg"]).pack(anchor=W)
     
-    Label(settings_frame, text="🌟 Direct Access Mode Enabled", 
-          font=("Segoe UI", 12), bg="#ffffff", fg="#27ae60").pack(pady=5, anchor=W)
-    
-    Button(settings_frame, text="🔄 Restart Application", 
-           command=lambda: restart_app(),
-           bg="#3498db", fg="white", font=("Segoe UI", 11, "bold"), 
+    theme_var = StringVar(value="light")
+    Radiobutton(theme_frame, text=get_text("light_theme"), variable=theme_var, value="light", bg=colors["card_bg"], fg=colors["fg"], selectcolor=colors["bg"]).pack(anchor=W)
+    Radiobutton(theme_frame, text=get_text("dark_theme"), variable=theme_var, value="dark", bg=colors["card_bg"], fg=colors["fg"], selectcolor=colors["bg"]).pack(anchor=W)
+
+    # Language Selection
+    lang_frame = Frame(settings_frame, bg=colors["card_bg"])
+    lang_frame.pack(fill=X, pady=10)
+    Label(lang_frame, text=get_text("language_selection"), font=("Segoe UI", 12, "bold"), bg=colors["card_bg"], fg=colors["fg"]).pack(anchor=W)
+
+    lang_var = StringVar(value="en")
+    Radiobutton(lang_frame, text=get_text("english"), variable=lang_var, value="en", bg=colors["card_bg"], fg=colors["fg"], selectcolor=colors["bg"]).pack(anchor=W)
+    Radiobutton(lang_frame, text=get_text("bengali"), variable=lang_var, value="bn", bg=colors["card_bg"], fg=colors["fg"], selectcolor=colors["bg"]).pack(anchor=W)
+
+    def save_and_restart():
+        set_theme(theme_var.get())
+        set_language(lang_var.get())
+        if messagebox.askyesno(get_text("restart_prompt_title"), get_text("restart_prompt_message")):
+            restart_app()
+
+    Button(settings_frame, text=get_text("save_settings"), 
+           command=save_and_restart,
+           bg="#27ae60", fg="white", font=("Segoe UI", 11, "bold"), 
            relief="flat", padx=20, pady=8).pack(pady=15)
+
+
+def apply_theme(theme_name):
+    """Apply selected theme to the application."""
+    global current_theme
+    current_theme = theme_name
+    
+    # Re-render the current view to apply the theme
+    # This is a simple way to apply themes without complex style management
+    show_dashboard()
+    show_settings() # Re-show settings to update its own colors
 
 def restart_app():
     result = messagebox.askyesno("Restart", "🔄 Are you sure you want to restart the application?")
@@ -310,16 +346,16 @@ def main():
             current_user = f"User {user_id}"
 
     root = Tk()
-    root.title("🧠 Life Manager - Dashboard")
+    root.title(get_text("dashboard_title"))
     root.geometry("1000x700")
-    root.configure(bg="#ffffff")
+    root.configure(bg=get_theme_colors()["bg"])
     root.resizable(True, True)
 
     # Initialize widget styles once
     init_styles()
 
     # === Main content frame ===
-    content_frame = Frame(root, bg="#f8f9fc")
+    content_frame = Frame(root, bg=get_theme_colors()["bg"])
     content_frame.pack(fill=BOTH, expand=True)
 
     # Show dashboard
