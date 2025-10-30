@@ -2,6 +2,13 @@ from tkinter import *
 from tkinter import messagebox, ttk
 from datetime import datetime
 
+try:
+    from tkcalendar import DateEntry
+    _TKCALENDAR_AVAILABLE = True
+except ImportError:
+    _TKCALENDAR_AVAILABLE = False
+
+
 def _clear_frame(frame: Frame):
     for widget in frame.winfo_children():
         widget.destroy()
@@ -70,15 +77,22 @@ def show_medications(parent_frame: Frame, connect_db, go_back):
     schedule_entry.grid(row=2, column=1, padx=10, pady=(0, 6), sticky=W)
 
     Label(form_frame, text="Start Date:", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=3, column=0, sticky=W, pady=(0, 6))
-    start_date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+    if _TKCALENDAR_AVAILABLE:
+        start_date_entry = DateEntry(form_frame, width=26, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd', font=("Segoe UI", 11))
+    else:
+        start_date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+        try:
+            start_date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
+        except:
+            pass
     start_date_entry.grid(row=3, column=1, padx=10, pady=(0, 6), sticky=W)
-    try:
-        start_date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
-    except:
-        pass
 
     Label(form_frame, text="End Date:", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=4, column=0, sticky=W, pady=(0, 6))
-    end_date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+    if _TKCALENDAR_AVAILABLE:
+        end_date_entry = DateEntry(form_frame, width=26, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd', font=("Segoe UI", 11))
+        end_date_entry.delete(0, "end") # Clear the default date
+    else:
+        end_date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
     end_date_entry.grid(row=4, column=1, padx=10, pady=(0, 6), sticky=W)
 
     info_var = StringVar(value="")

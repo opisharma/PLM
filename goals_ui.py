@@ -2,6 +2,13 @@ from tkinter import *
 from tkinter import messagebox, ttk
 from datetime import datetime
 
+try:
+    from tkcalendar import DateEntry
+    _TKCALENDAR_AVAILABLE = True
+except ImportError:
+    _TKCALENDAR_AVAILABLE = False
+
+
 def _clear_frame(frame: Frame):
     for widget in frame.winfo_children():
         widget.destroy()
@@ -69,12 +76,15 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
     desc_scroll.grid(row=1, column=2, sticky="nsw", pady=(0, 6))
 
     Label(form_frame, text="Target Date:", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=2, column=0, sticky=W, pady=(0, 6))
-    date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+    if _TKCALENDAR_AVAILABLE:
+        date_entry = DateEntry(form_frame, width=26, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd', font=("Segoe UI", 11))
+    else:
+        date_entry = ttk.Entry(form_frame, font=("Segoe UI", 11), width=28)
+        try:
+            date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
+        except Exception:
+            pass
     date_entry.grid(row=2, column=1, padx=10, pady=(0, 6), sticky=W)
-    try:
-        date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
-    except Exception:
-        pass
 
     Label(form_frame, text="Status:", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#2c3e50").grid(row=3, column=0, sticky=W, pady=(0, 6))
     status_var = StringVar(value="Not Started")
