@@ -145,11 +145,14 @@ def show_dashboard():
             active_meds = cursor.fetchone()[0]
             cursor.execute("SELECT COUNT(*) FROM goals WHERE status != 'Achieved'")
             active_goals = cursor.fetchone()[0]
+            cursor.execute("SELECT SUM(amount) FROM expenses WHERE MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())")
+            monthly_expense_raw = cursor.fetchone()[0]
+            monthly_expense = f"${monthly_expense_raw:.2f}" if monthly_expense_raw else "$0.00"
             conn.close()
         else:
-            pending_tasks, active_meds, active_goals = "N/A", "N/A", "N/A"
+            pending_tasks, active_meds, active_goals, monthly_expense = "N/A", "N/A", "N/A", "N/A"
     except Exception:
-        pending_tasks, active_meds, active_goals = "N/A", "N/A", "N/A"
+        pending_tasks, active_meds, active_goals, monthly_expense = "N/A", "N/A", "N/A", "N/A"
 
     stat1 = create_stat_item(stats_frame, "Pending Tasks", pending_tasks, "#e74c3c")
     stat1.pack(side=LEFT, expand=True, fill=X, padx=5)
@@ -157,6 +160,8 @@ def show_dashboard():
     stat2.pack(side=LEFT, expand=True, fill=X, padx=5)
     stat3 = create_stat_item(stats_frame, "Active Goals", active_goals, "#8e44ad")
     stat3.pack(side=LEFT, expand=True, fill=X, padx=5)
+    stat4 = create_stat_item(stats_frame, "Monthly Expense", monthly_expense, "#f39c12")
+    stat4.pack(side=LEFT, expand=True, fill=X, padx=5)
 
     # Welcome message with user name
     welcome_frame = Frame(content_frame, bg="#ecf0f1", relief="raised", bd=1)
