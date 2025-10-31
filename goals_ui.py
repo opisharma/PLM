@@ -278,6 +278,140 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
     vsb.pack(side=RIGHT, fill=Y)
     tree.pack(expand=True, fill=BOTH)
     
+    def on_double_click(event):
+        selected_item = tree.focus()
+        if not selected_item:
+            return
+        item_values = tree.item(selected_item, "values")
+        goal_id = item_values[0]
+        show_single_goal_view(goal_id)
+
     tree.bind("<<TreeviewSelect>>", on_row_select)
+    tree.bind("<Double-1>", on_double_click)
+
+    def show_single_goal_view(goal_id):
+        _clear_frame(parent_frame)
+
+        conn = connect_db()
+        if not conn:
+            messagebox.showerror("Database Error", "Could not connect to the database.")
+            go_back()
+            return
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM goals WHERE id = %s", (goal_id,))
+            goal = cursor.fetchone()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch goal: {e}")
+            conn.close()
+            go_back()
+            return
+        
+        if not goal:
+            messagebox.showerror("Error", "Goal not found.")
+            conn.close()
+            go_back()
+            return
+
+        header_frame = Frame(parent_frame, bg="#8e44ad", height=70)
+        header_frame.pack(fill=X, pady=(0, 20))
+        header_frame.pack_propagate(False)
+        Label(header_frame, text=f"🎯 {goal['title']}", font=("Segoe UI", 24, "bold"), bg="#8e44ad", fg="#ffffff").pack(pady=15)
+
+        nav_frame = Frame(parent_frame, bg="#f8f9fc")
+        nav_frame.pack(fill=X, padx=20, pady=(0, 10))
+        Button(nav_frame, text="⬅️ Back to All Goals", command=lambda: show_goals(parent_frame, connect_db, go_back), bg="#34495e", fg="white", font=("Segoe UI", 10), relief="flat", padx=10, pady=4).pack(side=LEFT)
+
+        main_container = Frame(parent_frame, bg="#f8f9fc")
+        main_container.pack(fill=BOTH, expand=True, padx=20, pady=10)
+
+        # Goal Details
+        details_frame = Frame(main_container, bg="#ffffff", relief="raised", bd=2)
+        details_frame.pack(fill=X, pady=(0, 10))
+        Label(details_frame, text=f"Description: {goal['description'] or 'N/A'}", font=("Segoe UI", 12), bg="#ffffff", wraplength=500, justify=LEFT).pack(anchor=W, padx=10, pady=5)
+        Label(details_frame, text=f"Target Date: {goal['target_date'].strftime('%Y-%m-%d')}", font=("Segoe UI", 12), bg="#ffffff").pack(anchor=W, padx=10, pady=5)
+        Label(details_frame, text=f"Status: {goal['status']}", font=("Segoe UI", 12), bg="#ffffff").pack(anchor=W, padx=10, pady=5)
+        
+        progress_var = DoubleVar(value=goal['progress'])
+        progress_bar = ttk.Progressbar(details_frame, orient=HORIZONTAL, length=300, mode='determinate', variable=progress_var)
+        progress_bar.pack(pady=10, padx=10)
+        progress_label = Label(details_frame, text=f"{goal['progress']}%", font=("Segoe UI", 12, "bold"), bg="#ffffff")
+        progress_label.pack()
+
+        # Sub-tasks
+        tasks_container = Frame(main_container, bg="#ffffff", relief="raised", bd=2)
+        tasks_container.pack(fill=BOTH, expand=True)
+        Label(tasks_container, text="Sub-tasks", font=("Segoe UI", 16, "bold"), bg="#ffffff").pack(pady=10)
+
+        tasks_frame = Frame(tasks_container, bg="#ffffff")
+        tasks_frame.pack(fill=BOTH, expand=True, padx=10)
+
+        sub_tasks = []
+
+        def update_progress():
+            completed_tasks = sum(1 for _, _, var in sub_tasks if var.get())
+            total_tasks = len(sub_tasks)
+            progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+            progress_var.set(progress)
+            progress_label.config(text=f"{progress:.0f}%")
+            try:
+                c = conn.cursor()
+                c.execute("UPDATE goals SET progress = %s WHERE id = %s", (progress, goal_id))
+                conn.commit()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update progress: {e}")
+
+        def toggle_task_completion(task_id, check_var):
+            try:
+                c = conn.cursor()
+                c.execute("UPDATE goal_tasks SET is_completed = %s WHERE id = %s", (check_var.get(), task_id))
+                conn.commit()
+                update_progress()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update sub-task: {e}")
+
+        def render_sub_tasks():
+            for widget in tasks_frame.winfo_children():
+                widget.destroy()
+            sub_tasks.clear()
+            try:
+                c = conn.cursor(dictionary=True)
+                c.execute("SELECT id, task_description, is_completed FROM goal_tasks WHERE goal_id = %s ORDER BY created_at ASC", (goal_id,))
+                tasks = c.fetchall()
+                for task in tasks:
+                    var = BooleanVar(value=task['is_completed'])
+                    cb = ttk.Checkbutton(tasks_frame, text=task['task_description'], variable=var, command=lambda t_id=task['id'], v=var: toggle_task_completion(t_id, v))
+                    cb.pack(anchor=W, padx=10)
+                    sub_tasks.append((task['id'], task['task_description'], var))
+                update_progress()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to fetch sub-tasks: {e}")
+
+        add_task_frame = Frame(tasks_container, bg="#ffffff")
+        add_task_frame.pack(fill=X, pady=10, padx=10)
+        new_task_entry = ttk.Entry(add_task_frame, font=("Segoe UI", 11), width=40)
+        new_task_entry.pack(side=LEFT, expand=True, fill=X)
+
+        def add_new_task():
+            desc = new_task_entry.get().strip()
+            if not desc:
+                return
+            try:
+                c = conn.cursor()
+                c.execute("INSERT INTO goal_tasks (goal_id, task_description) VALUES (%s, %s)", (goal_id, desc))
+                conn.commit()
+                new_task_entry.delete(0, END)
+                render_sub_tasks()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to add sub-task: {e}")
+
+        ttk.Button(add_task_frame, text="Add Task", command=add_new_task).pack(side=LEFT, padx=5)
+        
+        render_sub_tasks()
+        
+        def on_close():
+            if conn:
+                conn.close()
+            parent_frame.destroy()
 
     refresh_table()
