@@ -1,12 +1,20 @@
 from tkinter import *
 from tkinter import messagebox, ttk
 from datetime import datetime
+import time
+import threading
 
 try:
     from tkcalendar import DateEntry
     _TKCALENDAR_AVAILABLE = True
 except ImportError:
     _TKCALENDAR_AVAILABLE = False
+
+try:
+    from plyer import notification
+    _PLYER_AVAILABLE = True
+except ImportError:
+    _PLYER_AVAILABLE = False
 
 
 def _clear_frame(frame: Frame):
@@ -15,6 +23,82 @@ def _clear_frame(frame: Frame):
 
 def show_medications(parent_frame: Frame, connect_db, go_back):
     _clear_frame(parent_frame)
+
+    reminder_thread = None
+    stop_reminder_thread = threading.Event()
+
+    def send_desktop_notification(title, message):
+        if not _PLYER_AVAILABLE:
+            print("Plyer not installed, skipping notification.")
+            return
+        try:
+            notification.notify(
+                title=title,
+                message=message,
+                app_name="Life Manager",
+                timeout=10  # Notification will disappear after 10 seconds
+            )
+        except Exception as e:
+            print(f"Failed to send notification: {e}")
+
+    def reminder_checker():
+        notified_today = {}
+        print("Reminder thread started. Checking for medications every second.")
+
+        while not stop_reminder_thread.is_set():
+            now = datetime.now()
+            current_date_str = now.strftime('%Y-%m-%d')
+            current_time_str = now.strftime('%H:%M')
+            
+            # Reset notification tracking at midnight
+            if now.strftime('%H:%M:%S') == "00:00:00":
+                notified_today.clear()
+                print("Resetting daily notification tracking.")
+
+            conn = connect_db()
+            if not conn:
+                time.sleep(60) # If DB connection fails, wait longer before retrying
+                continue
+            
+            try:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(
+                    "SELECT * FROM medications WHERE start_date <= %s AND (end_date IS NULL OR end_date >= %s)",
+                    (now.date(), now.date())
+                )
+                medications = cursor.fetchall()
+                
+                for med in medications:
+                    schedule_times = [t.strip() for t in med['schedule'].split(',')]
+                    for scheduled_time in schedule_times:
+                        if scheduled_time == current_time_str:
+                            notification_key = (med['id'], current_date_str, scheduled_time)
+                            if notification_key not in notified_today:
+                                print(f"Found scheduled medication: {med['name']} at {scheduled_time}. Sending notification.")
+                                send_desktop_notification(
+                                    title=f"Medication Reminder: {med['name']}",
+                                    message=f"It's time to take your medication: {med['name']} ({med['dosage']})."
+                                )
+                                notified_today[notification_key] = True
+            except Exception as e:
+                print(f"Error in reminder thread: {e}")
+            finally:
+                if conn:
+                    conn.close()
+            
+            # Wait for the next minute to start to avoid multiple notifications for the same minute
+            time.sleep(60 - datetime.now().second)
+
+    def start_reminder_thread():
+        nonlocal reminder_thread
+        if reminder_thread is None or not reminder_thread.is_alive():
+            stop_reminder_thread.clear()
+            reminder_thread = threading.Thread(target=reminder_checker, daemon=True)
+            reminder_thread.start()
+
+    def on_back():
+        stop_reminder_thread.set()
+        go_back()
 
     header_frame = Frame(parent_frame, bg="#16a085", height=70)
     header_frame.pack(fill=X, pady=(0, 20))
@@ -33,7 +117,7 @@ def show_medications(parent_frame: Frame, connect_db, go_back):
     Button(
         nav_frame,
         text="🏠 Back to Dashboard",
-        command=go_back,
+        command=on_back,
         bg="#34495e",
         fg="white",
         font=("Segoe UI", 10),
@@ -291,3 +375,4 @@ def show_medications(parent_frame: Frame, connect_db, go_back):
     tree.bind("<<TreeviewSelect>>", on_row_select)
 
     refresh_table()
+    start_reminder_thread()
