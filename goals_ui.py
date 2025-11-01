@@ -621,7 +621,9 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
         details_frame.pack(fill=X, pady=(0, 10))
         Label(details_frame, text=f"Description: {goal['description'] or 'N/A'}", font=("Segoe UI", 12), bg="#ffffff", wraplength=500, justify=LEFT).pack(anchor=W, padx=10, pady=5)
         Label(details_frame, text=f"Target Date: {goal['target_date'].strftime('%Y-%m-%d')}", font=("Segoe UI", 12), bg="#ffffff").pack(anchor=W, padx=10, pady=5)
-        Label(details_frame, text=f"Status: {goal['status']}", font=("Segoe UI", 12), bg="#ffffff").pack(anchor=W, padx=10, pady=5)
+        status_text_var = StringVar(value=f"Status: {goal['status']}")
+        status_label = Label(details_frame, textvariable=status_text_var, font=("Segoe UI", 12), bg="#ffffff")
+        status_label.pack(anchor=W, padx=10, pady=5)
         
         progress_var = DoubleVar(value=goal['progress'])
         progress_bar = ttk.Progressbar(details_frame, orient=HORIZONTAL, length=300, mode='determinate', variable=progress_var)
@@ -647,7 +649,21 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
             progress_label.config(text=f"{progress:.0f}%")
             try:
                 c = conn.cursor()
-                c.execute("UPDATE goals SET progress = %s WHERE id = %s", (progress, goal_id))
+                # Decide new status based on completion
+                new_status = None
+                if total_tasks > 0:
+                    if completed_tasks == 0:
+                        new_status = "Not Started"
+                    elif completed_tasks == total_tasks:
+                        new_status = "Achieved"
+                    else:
+                        new_status = "In Progress"
+
+                if new_status is not None:
+                    c.execute("UPDATE goals SET progress = %s, status = %s WHERE id = %s", (progress, new_status, goal_id))
+                    status_text_var.set(f"Status: {new_status}")
+                else:
+                    c.execute("UPDATE goals SET progress = %s WHERE id = %s", (progress, goal_id))
                 conn.commit()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to update progress: {e}")
