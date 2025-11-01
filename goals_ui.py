@@ -1,6 +1,16 @@
+import os
+import re
+import threading
 from tkinter import *
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, scrolledtext
 from datetime import datetime
+
+try:
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    _TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    AutoModelForCausalLM, AutoTokenizer = None, None
+    _TRANSFORMERS_AVAILABLE = False
 
 try:
     from tkcalendar import DateEntry
@@ -9,12 +19,243 @@ except ImportError:
     _TKCALENDAR_AVAILABLE = False
 
 
+# --- AI Model Configuration ---
+MODEL_NAME = "distilgpt2"
+MODEL_PATH = os.path.join(".", "model_cache", MODEL_NAME)
+model = None
+tokenizer = None
+# --- End AI Configuration ---
+
+
 def _clear_frame(frame: Frame):
     for widget in frame.winfo_children():
         widget.destroy()
 
 def show_goals(parent_frame: Frame, connect_db, go_back):
     _clear_frame(parent_frame)
+
+    # --- AI Model Handling ---
+    ai_status_var = StringVar(value="AI model not loaded.")
+    
+    # --- Smart deterministic planner (fallback when LLM outputs are poor) ---
+    def _limit_words(s: str, n: int = 10) -> str:
+        words = s.strip().split()
+        return (" ".join(words[:n]) + ("..." if len(words) > n else "")).strip()
+
+    def _infer_weeks_from_text(text: str) -> int:
+        """Roughly infer weeks from natural language like 'in 1 month', 'for 6 weeks', '10 days'."""
+        t = (text or "").lower()
+        # months
+        m = re.search(r"(\d+)\s*(month|months|mon)\b", t)
+        if m:
+            return max(1, int(m.group(1)) * 4)
+        # weeks
+        w = re.search(r"(\d+)\s*(week|weeks|wk|wks)\b", t)
+        if w:
+            return max(1, int(w.group(1)))
+        # days
+        d = re.search(r"(\d+)\s*(day|days)\b", t)
+        if d:
+            days = int(d.group(1))
+            return max(1, (days + 6) // 7)
+        return 0
+
+    def _detect_topic(title: str, desc: str) -> str:
+        text = f"{title} {desc}".lower()
+        office_keywords = [
+            "ms office", "microsoft office", "word", "excel", "powerpoint", "outlook", "onedrive"
+        ]
+        if any(k in text for k in office_keywords):
+            return "ms_office"
+        return "generic_learn"
+
+    def _tasks_for_topic(topic: str) -> list:
+        if topic == "ms_office":
+            base = [
+                "Install Microsoft Office and sign in",
+                "Learn Word: formatting, styles, page layout",
+                "Write one-page document with headings",
+                "Learn Excel: cells, formulas, functions",
+                "Practice Excel: SUM, AVERAGE, IF, VLOOKUP",
+                "Create Excel chart and pivot table",
+                "Learn PowerPoint: slides, themes, layouts",
+                "Build 10-slide presentation with transitions",
+                "Learn Outlook: mail, calendar, rules",
+                "Set up OneDrive and file sharing",
+                "Practice keyboard shortcuts daily",
+                "Review templates: resume, invoice, report",
+            ]
+        else:
+            # very generic study plan
+            base = [
+                "Define clear learning objectives",
+                "Collect the best beginner resources",
+                "Schedule daily 30-minute study blocks",
+                "Complete one focused practice session",
+                "Create a mini project to apply skills",
+                "Review mistakes and notes daily",
+                "Seek feedback from a knowledgeable peer",
+                "Summarize learnings into a cheat sheet",
+            ]
+        return [_limit_words(t, 10) for t in base]
+
+    def _build_rule_based_plan(title: str, desc: str) -> list:
+        topic = _detect_topic(title, desc)
+        weeks = _infer_weeks_from_text(desc)
+        tasks = _tasks_for_topic(topic)
+        # Cap total tasks to a reasonable number for short timeframes
+        max_tasks = 8 if weeks and weeks <= 4 else min(12, len(tasks))
+        tasks = tasks[:max_tasks]
+        # If we know the weeks, prefix early tasks with week labels
+        if weeks > 0:
+            # use up to min(weeks, len(tasks)) week labels
+            label_count = min(weeks, len(tasks))
+            labeled = []
+            for i, t in enumerate(tasks):
+                if i < label_count:
+                    pref = f"Week {i+1}: "
+                    labeled.append(_limit_words(pref + t, 10))
+                else:
+                    labeled.append(_limit_words(t, 10))
+            tasks = labeled
+        else:
+            tasks = [_limit_words(t, 10) for t in tasks]
+        # Final sanitizer: drop any empty strings
+        return [t for t in tasks if t]
+    # --- End Smart deterministic planner ---
+    
+    def load_model_offline():
+        """Loads the model from local cache in a background thread."""
+        global model, tokenizer
+        if not _TRANSFORMERS_AVAILABLE:
+            ai_status_var.set("❌ 'transformers' library not found.")
+            return
+
+        if model and tokenizer:
+            ai_status_var.set("✅ AI model is ready.")
+            generate_ai_tasks_button.config(state=NORMAL)
+            return
+
+        ai_status_var.set("🔄 Loading AI model...")
+        try:
+            if not os.path.exists(MODEL_PATH):
+                ai_status_var.set(f"❌ Model not found at '{MODEL_PATH}'.")
+                messagebox.showwarning("AI Model Not Found", f"The model cache was not found at '{MODEL_PATH}'.\nPlease run `download_model.py` first.")
+                return
+
+            tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
+            model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, local_files_only=True)
+            ai_status_var.set("✅ AI model is ready.")
+            generate_ai_tasks_button.config(state=NORMAL)
+        except Exception as e:
+            ai_status_var.set("❌ Error loading AI model.")
+            messagebox.showerror("AI Model Error", f"Failed to load the local AI model:\n{e}")
+
+    def generate_tasks_threaded():
+        """Generates tasks in a thread to keep UI responsive."""
+        goal_title = title_entry.get().strip()
+        goal_desc = desc_text.get("1.0", END).strip()
+
+        if not goal_title:
+            messagebox.showwarning("Input Needed", "Please provide a Goal Title to generate tasks.")
+            return
+        
+        threading.Thread(target=generate_tasks, args=(goal_title, goal_desc)).start()
+
+    def generate_tasks(goal_title, goal_desc):
+        """Uses the AI model to generate tasks."""
+        if not model or not tokenizer:
+            ai_status_var.set("❌ AI model not loaded.")
+            return
+
+        ai_status_var.set("⏳ Generating tasks...")
+        generate_ai_tasks_button.config(state=DISABLED)
+        ai_tasks_listbox.delete(0, END)
+
+        try:
+            # 1) Try deterministic smart planner first for relevance and brevity
+            planner_tasks = _build_rule_based_plan(goal_title, goal_desc)
+            if planner_tasks:
+                for task in planner_tasks:
+                    ai_tasks_listbox.insert(END, task)
+                ai_status_var.set(f"✅ Generated {len(planner_tasks)} tasks (smart planner).")
+                return
+
+            # 2) Fallback to the offline model if planner yields nothing
+            # A much simpler and more direct prompt to avoid confusing the small model.
+            # It no longer contains a complex example that the model might copy.
+            prompt = (
+                "Create a short, numbered list of tasks for the following goal. "
+                "Base the tasks ONLY on the Goal and Description provided.\n"
+                f"Goal: {goal_title}\n"
+                f"Description: {goal_desc}\n\n"
+                "Tasks:\n1."
+            )
+            inputs = tokenizer(prompt, return_tensors="pt")
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=100,
+                num_return_sequences=1,
+                no_repeat_ngram_size=2,
+                temperature=0.7,
+                top_k=50,
+                top_p=0.95,
+                pad_token_id=tokenizer.eos_token_id
+            )
+            generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            tasks = parse_generated_tasks(generated_text)
+            
+            if tasks:
+                for task in tasks:
+                    ai_tasks_listbox.insert(END, task)
+                ai_status_var.set(f"✅ Generated {len(tasks)} tasks.")
+            else:
+                ai_status_var.set("⚠️ No tasks generated. Try a different goal.")
+        except Exception as e:
+            ai_status_var.set("❌ Task generation failed.")
+            messagebox.showerror("AI Generation Error", f"An error occurred: {e}")
+        finally:
+            generate_ai_tasks_button.config(state=NORMAL)
+
+    def parse_generated_tasks(text: str) -> list:
+        """
+        Parses the raw model output to extract a clean list of tasks,
+        enforcing a word limit and filtering out irrelevant content.
+        """
+        # Find the 'Tasks:' section and work from there.
+        plan_section_match = re.search(r"Tasks:(.*)", text, re.DOTALL)
+        if not plan_section_match:
+            return []
+        
+        plan_section = plan_section_match.group(1)
+        
+        # Extract numbered list items.
+        raw_tasks = re.findall(r"\d+\.\s*(.+)", plan_section)
+        
+        cleaned_tasks = []
+        # Keywords to filter out irrelevant, example-based responses.
+        filter_keywords = ['python', 'numpy', 'pandas', 'matplotlib', 'data analysis', 'skill']
+
+        for task in raw_tasks:
+            task_lower = task.lower()
+            # 1. Filter out tasks that contain keywords from the old, irrelevant examples.
+            if any(keyword in task_lower for keyword in filter_keywords):
+                continue
+
+            # 2. Truncate to 10 words to keep tasks concise.
+            words = task.strip().split()
+            if len(words) > 10:
+                task = ' '.join(words[:10]) + '...'
+            else:
+                task = ' '.join(words)
+            
+            if task:
+                cleaned_tasks.append(task)
+                
+        return cleaned_tasks
+
+    # --- End AI Model Handling ---
 
     header_frame = Frame(parent_frame, bg="#8e44ad", height=70)
     header_frame.pack(fill=X, pady=(0, 20))
@@ -90,6 +331,48 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
     status_var = StringVar(value="Not Started")
     status_combo = ttk.Combobox(form_frame, textvariable=status_var, values=("Not Started", "In Progress", "Achieved"), state="readonly", width=26)
     status_combo.grid(row=3, column=1, padx=10, pady=(0, 6), sticky=W)
+
+    # --- AI Task Generation UI ---
+    ai_frame = Frame(form_container, bg="#ffffff")
+    ai_frame.pack(pady=10, padx=16, fill=X)
+
+    generate_ai_tasks_button = ttk.Button(ai_frame, text="🤖 Generate Tasks with AI", command=generate_tasks_threaded, state=DISABLED)
+    generate_ai_tasks_button.pack(pady=(5, 10))
+
+    ai_status_label = Label(ai_frame, textvariable=ai_status_var, font=("Segoe UI", 9), bg="#ffffff", fg="#555")
+    ai_status_label.pack()
+
+    ai_tasks_listbox = Listbox(ai_frame, height=6, font=("Segoe UI", 10), relief="solid", bd=1)
+    ai_tasks_listbox.pack(fill=X, expand=True, pady=(5, 10))
+    
+    def save_generated_tasks():
+        goal_id = selected_goal_id.get()
+        if not goal_id:
+            messagebox.showwarning("No Goal Selected", "Please save the main goal first or select an existing one.")
+            return
+            
+        tasks_to_save = ai_tasks_listbox.get(0, END)
+        if not tasks_to_save:
+            messagebox.showwarning("No Tasks", "There are no generated tasks to save.")
+            return
+
+        conn = connect_db()
+        if not conn: return
+        try:
+            cursor = conn.cursor()
+            for task_desc in tasks_to_save:
+                cursor.execute("INSERT INTO goal_tasks (goal_id, task_description) VALUES (%s, %s)", (goal_id, task_desc))
+            conn.commit()
+            messagebox.showinfo("Success", f"{len(tasks_to_save)} AI-generated tasks have been saved for this goal.")
+            ai_tasks_listbox.delete(0, END)
+            # Optionally, refresh the single goal view if it's open
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to save generated tasks: {e}")
+        finally:
+            if conn: conn.close()
+
+    ttk.Button(ai_frame, text="💾 Save Generated Tasks", command=save_generated_tasks).pack(pady=5)
+    # --- End AI Task Generation UI ---
 
     info_var = StringVar(value="")
     info_label = Label(form_container, textvariable=info_var, font=("Segoe UI", 10), bg="#ffffff", fg="#7f8c8d")
@@ -184,6 +467,10 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
         if not selected_item:
             return
         
+        # Clear AI tasks when a new goal is selected
+        ai_tasks_listbox.delete(0, END)
+        ai_status_var.set("✅ AI model is ready.")
+
         item_values = tree.item(selected_item, "values")
         goal_id = item_values[0]
         
@@ -288,6 +575,10 @@ def show_goals(parent_frame: Frame, connect_db, go_back):
 
     tree.bind("<<TreeviewSelect>>", on_row_select)
     tree.bind("<Double-1>", on_double_click)
+
+    # --- Load AI model in background ---
+    threading.Thread(target=load_model_offline, daemon=True).start()
+    # ---
 
     def show_single_goal_view(goal_id):
         _clear_frame(parent_frame)
